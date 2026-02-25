@@ -13,6 +13,10 @@
 	}
 
 	var jsonData = $('#task-form').serializeJSON();
+	if (jsonData.category_id === "")
+	{
+		jsonData.category_id = null;
+	}
 	jsonData.assigned_to_user_id = jsonData.user_id;
 	delete jsonData.user_id;
 	jsonData.due_date = Grocy.Components.DateTimePicker.GetValue();

@@ -72,7 +72,7 @@
 			@include('components.productamountpicker', array(
 			'value' => $value,
 			'initialQuId' => $initialQuId,
-			'allowZero' => true,
+			'min' => $DEFAULT_MIN_AMOUNT,
 			'isRequired' => false
 			))
 

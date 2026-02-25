@@ -1,0 +1,12 @@
+-- Converted trigger (MariaDB compatible)
+
+DELIMITER $$
+CREATE TRIGGER default_start_date_when_empty_INS AFTER INSERT ON chores FOR EACH ROW
+BEGIN
+UPDATE chores
+	SET start_date =  DATETIME('now', 'localtime')
+	WHERE id = NEW.id
+		AND IFNULL(start_date, '') = '';
+END;
+$$
+DELIMITER ;

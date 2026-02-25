@@ -1,0 +1,25 @@
+-- Converted trigger (MariaDB compatible)
+
+DELIMITER $$
+CREATE TRIGGER quantity_unit_conversions_DEL AFTER DELETE ON quantity_unit_conversions FOR EACH ROW
+BEGIN
+-- Delete the inverse QU conversion
+	DELETE FROM quantity_unit_conversions
+	WHERE from_qu_id = OLD.to_qu_id
+		AND to_qu_id = OLD.from_qu_id
+		AND IFNULL(product_id, -1) = IFNULL(OLD.product_id, -1);
+
+	-- Update quantity_unit_conversions_resolved cache
+	DELETE FROM cache__quantity_unit_conversions_resolved
+	WHERE path LIKE CONCAT('%/', OLD.to_qu_id, '/%')
+		OR path LIKE CONCAT('%/', OLD.from_qu_id, '/%');
+
+	INSERT INTO cache__quantity_unit_conversions_resolved
+		(product_id, from_qu_id, from_qu_name, from_qu_name_plural, to_qu_id, to_qu_name, to_qu_name_plural, factor, path)
+	SELECT product_id, from_qu_id, from_qu_name, from_qu_name_plural, to_qu_id, to_qu_name, to_qu_name_plural, factor, path
+	FROM quantity_unit_conversions_resolved
+	WHERE path LIKE CONCAT('%/', OLD.to_qu_id, '/%')
+		OR path LIKE CONCAT('%/', OLD.from_qu_id, '/%');
+END;
+$$
+DELIMITER ;

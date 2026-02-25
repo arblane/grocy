@@ -471,7 +471,8 @@ $('#save-add-to-mealplan-button').on('click', function(e)
 	}
 
 	var formData = $('#add-to-mealplan-form').serializeJSON();
-	formData.day = Grocy.Components.DateTimePicker.GetValue();
+	var dayValue = $('#add-to-mealplan-form .datetimepicker').find('input').not(".form-check-input").val();
+	formData.day = dayValue || Grocy.Components.DateTimePicker.GetValue();
 
 	Grocy.Api.Post('objects/meal_plan', formData,
 		function(result)

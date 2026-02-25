@@ -65,11 +65,21 @@ class ApplicationService extends BaseService
 		$sqliteVersion = $pdo->query('SELECT sqlite_version()')->fetch()[0];
 		$pdo = null;
 
+		$dbVersion = null;
+		try
+		{
+			$dbVersion = $this->getDatabase()->migrations()->max('migration');
+		}
+		catch (\Throwable $ex)
+		{
+			$dbVersion = null;
+		}
+
 		return [
 			'grocy_version' => $this->GetInstalledVersion(),
 			'php_version' => phpversion(),
 			'sqlite_version' => $sqliteVersion,
-			'db_version' => $this->getDatabase()->migrations()->max('migration'),
+			'db_version' => $dbVersion,
 			'os' => php_uname('s') . ' ' . php_uname('r') . ' ' . php_uname('v') . ' ' . php_uname('m'),
 			'client' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'unknown'
 		];

@@ -1,0 +1,17 @@
+-- Converted trigger (MariaDB compatible)
+
+DELIMITER $$
+CREATE TRIGGER prevent_internal_meal_plan_section_removal BEFORE DELETE ON meal_plan_sections FOR EACH ROW
+BEGIN
+IF EXISTS(
+		SELECT 1
+		FROM meal_plan_sections
+		WHERE id = OLD.id
+			AND id = -1
+	) THEN
+	SIGNAL SQLSTATE '45000'
+		SET MESSAGE_TEXT='This is an internally used/required default section and therefore can''t be deleted';
+END IF;
+END;
+$$
+DELIMITER ;

@@ -1,0 +1,6 @@
+UPDATED: sql/create_tables.sql (backup: create_tables.sql.bak)
+UPDATED: sql/create_views.sql (backup: create_views.sql.bak)
+UPDATED: migration/ddl/create_tables_test.sql (backup: create_tables_test.sql.bak)
+UPDATED: migration/ddl/create_views_test.sql (backup: create_views_test.sql.bak)
+UPDATED: migration/ddl/views/stock_next_use.sql (backup: stock_next_use.sql.bak)
+UPDATED: migration/ddl/views/products_current_substitutions.sql (backup: products_current_substitutions.sql.bak)

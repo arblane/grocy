@@ -1,0 +1,24 @@
+-- Converted trigger (MariaDB compatible)
+
+DELIMITER $$
+CREATE TRIGGER qu_conversions_custom_constraint_UPD BEFORE UPDATE ON quantity_unit_conversions FOR EACH ROW
+BEGIN
+/* This contains practically the same logic as the trigger qu_conversions_custom_constraint_INS */
+
+	/*
+		Necessary because unique constraints do not include NULL values in SQLite
+		*/
+IF EXISTS(
+	SELECT 1
+	FROM quantity_unit_conversions
+	WHERE from_qu_id = NEW.from_qu_id
+		AND to_qu_id = NEW.to_qu_id
+		AND IFNULL(product_id, 0) = IFNULL(NEW.product_id, 0)
+		AND id != NEW.id
+	) THEN
+	SIGNAL SQLSTATE '45000'
+		SET MESSAGE_TEXT='QU conversion already exists';
+END IF;
+END;
+$$
+DELIMITER ;

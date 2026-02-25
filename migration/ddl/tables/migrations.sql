@@ -1,0 +1,1 @@
+CREATE TABLE migrations (migration INT NOT NULL PRIMARY KEY AUTO_INCREMENT, execution_time_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP /* REVIEW: was datetime('now','localtime') */) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -81,7 +81,7 @@ class UsersService extends BaseService
 		}
 
 		$value = null;
-		$settingRow = $this->getDatabase()->user_settings()->where('user_id = :1 AND key = :2', $userId, $settingKey)->fetch();
+		$settingRow = $this->getDatabase()->user_settings()->where(['key' => $settingKey, 'user_id' => $userId])->fetch();
 		if ($settingRow !== null)
 		{
 			$value = $settingRow->value;
@@ -127,7 +127,10 @@ class UsersService extends BaseService
 		}
 		self::$UserSettingsCache[$userId][$settingKey] = $settingValue;
 
-		$settingRow = $this->getDatabase()->user_settings()->where('user_id = :1 AND key = :2', $userId, $settingKey)->fetch();
+		$settingRow = $this->getDatabase()->user_settings()->where([
+			'user_id' => $userId,
+			'key' => $settingKey
+		])->fetch();
 		if ($settingRow !== null)
 		{
 			$settingRow->update([
@@ -154,7 +157,10 @@ class UsersService extends BaseService
 		}
 		unset(self::$UserSettingsCache[$userId][$settingKey]);
 
-		$this->getDatabase()->user_settings()->where('user_id = :1 AND key = :2', $userId, $settingKey)->delete();
+		$this->getDatabase()->user_settings()->where([
+			'user_id' => $userId,
+			'key' => $settingKey
+		])->delete();
 	}
 
 	private function UserExists($userId)

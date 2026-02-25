@@ -1,0 +1,18 @@
+-- Converted trigger (MariaDB compatible)
+
+DELIMITER $$
+CREATE TRIGGER enfore_product_nesting_level BEFORE UPDATE ON products FOR EACH ROW
+BEGIN
+-- Currently only 1 level is supported
+    IF EXISTS(
+        SELECT 1
+        FROM products p
+        WHERE IFNULL(NEW.parent_product_id, '') != ''
+            AND IFNULL(parent_product_id, '') = NEW.id
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT='Unsupported product nesting level detected (currently only 1 level is supported)';
+    END IF;
+END;
+$$
+DELIMITER ;

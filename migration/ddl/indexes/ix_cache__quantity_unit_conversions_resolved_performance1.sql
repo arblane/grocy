@@ -1,0 +1,1 @@
+CREATE INDEX ix_cache__quantity_unit_conversions_resolved_performance1 ON cache__quantity_unit_conversions_resolved ( product_id, from_qu_id, to_qu_id );

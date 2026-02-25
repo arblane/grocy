@@ -445,7 +445,7 @@ class StockService extends BaseService
 					}
 				}
 
-				if ($amount >= $stockEntry->amount)
+					if ($amount >= $stockEntry->amount)
 				{
 					// Take the whole stock entry
 					$logRow = $this->getDatabase()->stock_log()->createRow([
@@ -467,7 +467,7 @@ class StockService extends BaseService
 					]);
 					$logRow->save();
 
-					$stockEntry->delete();
+					$this->ResolveStockEntryRow($stockEntry)->delete();
 
 					$amount -= $stockEntry->amount;
 
@@ -502,7 +502,7 @@ class StockService extends BaseService
 					]);
 					$logRow->save();
 
-					$stockEntry->update([
+					$this->ResolveStockEntryRow($stockEntry)->update([
 						'amount' => $restStockAmount
 					]);
 
@@ -628,35 +628,11 @@ class StockService extends BaseService
 				{
 					try
 					{
-						if (preg_match('/^https?:\/\//', $pluginOutput['__image_url']))
-						{
-							$webClient = new Client();
-							$response = $webClient->request('GET', $pluginOutput['__image_url'], ['headers' => ['User-Agent' => 'Grocy/' . $this->getApplicationService()->GetInstalledVersion()->Version . ' (https://grocy.info)']]);
-							$fileExtension = pathinfo(parse_url($pluginOutput['__image_url'], PHP_URL_PATH), PATHINFO_EXTENSION);
-
-							// Fallback to Content-Type header if file extension is missing
-							if (strlen($fileExtension) == 0 && $response->hasHeader('Content-Type'))
-							{
-								$fileExtension = explode('+', explode('/', $response->getHeader('Content-Type')[0])[1])[0];
-							}
-
-							$imageData = $response->getBody();
-						}
-						elseif (preg_match('/data:image\/(\w+?);base64,([A-Za-z0-9+\/]*={0,2})$/', $pluginOutput['__image_url'], $matches))
-						{
-							$fileExtension = $matches[1];
-							if (!($imageData = base64_decode($matches[2])))
-							{
-								unset($imageData);
-							}
-						}
-
-						if (!empty($fileExtension) && !empty($imageData))
-						{
-							$fileName = $pluginOutput['__barcode'] . '.' . $fileExtension;
-							file_put_contents($this->getFilesService()->GetFilePath('productpictures', $fileName), $imageData);
-							$productData['picture_file_name'] = $fileName;
-						}
+						$webClient = new Client();
+						$response = $webClient->request('GET', $pluginOutput['__image_url'], ['headers' => ['User-Agent' => 'Grocy/' . $this->getApplicationService()->GetInstalledVersion()->Version . ' (https://grocy.info)']]);
+						$fileName = $pluginOutput['__barcode'] . '.' . pathinfo(parse_url($pluginOutput['__image_url'], PHP_URL_PATH), PATHINFO_EXTENSION);
+						file_put_contents($this->getFilesService()->GetFilePath('productpictures', $fileName), $response->getBody());
+						$productData['picture_file_name'] = $fileName;
 					}
 					catch (\Exception)
 					{
@@ -880,6 +856,22 @@ class StockService extends BaseService
 		return $this->getDatabase()->stock_next_use()->where($sqlWhereProductId . ' ' . $sqlWhereAndOpen);
 	}
 
+	private function ResolveStockEntryRow($stockEntry)
+	{
+		if ($this->getDatabaseService()->GetDatabaseType() === 'sqlite')
+		{
+			return $stockEntry;
+		}
+
+		$stockRow = $this->getDatabase()->stock()->where('id = :1', $stockEntry->id)->fetch();
+		if ($stockRow === null)
+		{
+			throw new \Exception('Stock entry does not exist');
+		}
+
+		return $stockRow;
+	}
+
 	public function GetLocationStockEntries($locationId)
 	{
 		if (!$this->LocationExists($locationId))
@@ -1082,7 +1074,7 @@ class StockService extends BaseService
 				]);
 				$logRow->save();
 
-				$stockEntry->update([
+				$this->ResolveStockEntryRow($stockEntry)->update([
 					'open' => 1,
 					'opened_date' => date('Y-m-d'),
 					'best_before_date' => $newBestBeforeDate
@@ -1125,7 +1117,7 @@ class StockService extends BaseService
 				]);
 				$logRow->save();
 
-				$stockEntry->update([
+				$this->ResolveStockEntryRow($stockEntry)->update([
 					'amount' => $amount,
 					'open' => 1,
 					'opened_date' => date('Y-m-d'),
@@ -1405,7 +1397,7 @@ class StockService extends BaseService
 				]);
 				$logRowForLocationTo->save();
 
-				$stockEntry->update([
+				$this->ResolveStockEntryRow($stockEntry)->update([
 					'location_id' => $locationIdTo,
 					'best_before_date' => $newBestBeforeDate
 				]);
@@ -1454,7 +1446,7 @@ class StockService extends BaseService
 				$logRowForLocationTo->save();
 
 				// This is the existing stock entry -> remains at the source location with the rest amount
-				$stockEntry->update([
+				$this->ResolveStockEntryRow($stockEntry)->update([
 					'amount' => $restStockAmount
 				]);
 

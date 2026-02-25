@@ -1,0 +1,16 @@
+-- Converted trigger (MariaDB compatible)
+
+DELIMITER $$
+CREATE TRIGGER prevent_adding_barcodes_for_not_existing_products AFTER INSERT ON product_barcodes FOR EACH ROW
+BEGIN
+IF NOT EXISTS(
+		SELECT 1
+		FROM products p
+		WHERE id = NEW.product_id
+	) THEN
+	SIGNAL SQLSTATE '45000'
+		SET MESSAGE_TEXT='product_id doesn''t reference a existing product';
+END IF;
+END;
+$$
+DELIMITER ;

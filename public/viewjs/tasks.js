@@ -128,11 +128,12 @@ $(document).on('click', '.undo-task-button', function(e)
 $(document).on('click', '.delete-task-button', function(e)
 {
 	e.preventDefault();
+	var triggerButton = e.currentTarget;
 
 	var objectName = $(e.currentTarget).attr('data-task-name');
 	var objectId = $(e.currentTarget).attr('data-task-id');
 
-	bootbox.confirm({
+	var dialog = bootbox.confirm({
 		message: __t('Are you sure you want to delete task "%s"?', objectName),
 		closeButton: false,
 		buttons: {
@@ -147,6 +148,10 @@ $(document).on('click', '.delete-task-button', function(e)
 		},
 		callback: function(result)
 		{
+			if (document.activeElement && document.activeElement.blur)
+			{
+				document.activeElement.blur();
+			}
 			if (result === true)
 			{
 				Grocy.Api.Delete('objects/tasks/' + objectId, {},
@@ -165,6 +170,17 @@ $(document).on('click', '.delete-task-button', function(e)
 			}
 		}
 	});
+
+	if (dialog)
+	{
+		dialog.on('hidden.bs.modal', function()
+		{
+			if (triggerButton && triggerButton.focus)
+			{
+				triggerButton.focus();
+			}
+		});
+	}
 });
 
 $("#show-done-tasks").change(function()

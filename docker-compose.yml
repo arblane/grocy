@@ -1,0 +1,40 @@
+services:
+  mariadb:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-changeme}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-grocy_db}
+      MARIADB_USER: ${MARIADB_USER:-grocy}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-changeme}
+    volumes:
+      - ${MARIADB_VOLUME:-mariadb_data}:/var/lib/mysql
+      # - ./schema-mariadb.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "3306:3306"
+
+  grocy:
+    build:
+      context: .
+      dockerfile: grocy.Dockerfile
+    container_name: grocy
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      GROCY_BASE_URL: ${GROCY_BASE_URL:-http://192.168.0.130:8080}
+      GROCY_DATABASE_TYPE: ${GROCY_DATABASE_TYPE:-mysql}
+      GROCY_DATABASE_HOST: ${GROCY_DATABASE_HOST:-mariadb}
+      GROCY_DATABASE_PORT: ${GROCY_DATABASE_PORT:-3306}
+      GROCY_DATABASE_NAME: ${GROCY_DATABASE_NAME:-grocy_db}
+      GROCY_DATABASE_USER: ${GROCY_DATABASE_USER:-grocy}
+      GROCY_DATABASE_PASSWORD: ${GROCY_DATABASE_PASSWORD:-changeme}
+    volumes:
+      - ${GROCY_CONFIG_VOLUME:-./grocy-config}:/config
+      - ${GROCY_APP_VOLUME:-./grocy-app}:/app/www
+    ports:
+      - "9283:80"
+
+volumes:
+  mariadb_data:

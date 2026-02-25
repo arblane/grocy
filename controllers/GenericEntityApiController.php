@@ -8,6 +8,8 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 class GenericEntityApiController extends BaseApiController
 {
+	private static $NullableNumericDateColumns = null;
+
 	public function AddObject(Request $request, Response $response, array $args)
 	{
 		if ($args['entity'] == 'shopping_list' || $args['entity'] == 'shopping_lists')
@@ -39,6 +41,32 @@ class GenericEntityApiController extends BaseApiController
 			}
 
 			$requestBody = $this->GetParsedAndFilteredRequestBody($request);
+			$requestBody = $this->NormalizeEmptyStringsForNullableColumns($args['entity'], $requestBody);
+			if ($args['entity'] == 'tasks')
+			{
+				if (isset($requestBody['category_id']) && $requestBody['category_id'] === '')
+				{
+					unset($requestBody['category_id']);
+				}
+				if (isset($requestBody['due_date']) && $requestBody['due_date'] === '')
+				{
+					unset($requestBody['due_date']);
+				}
+			}
+			if ($args['entity'] == 'chores')
+			{
+				if (isset($requestBody['product_id']) && $requestBody['product_id'] === '')
+				{
+					unset($requestBody['product_id']);
+				}
+			}
+			if ($args['entity'] == 'userfields')
+			{
+				if (isset($requestBody['sort_number']) && $requestBody['sort_number'] === '')
+				{
+					unset($requestBody['sort_number']);
+				}
+			}
 
 			try
 			{
@@ -153,6 +181,32 @@ class GenericEntityApiController extends BaseApiController
 			}
 
 			$requestBody = $this->GetParsedAndFilteredRequestBody($request);
+			$requestBody = $this->NormalizeEmptyStringsForNullableColumns($args['entity'], $requestBody);
+			if ($args['entity'] == 'tasks')
+			{
+				if (isset($requestBody['category_id']) && $requestBody['category_id'] === '')
+				{
+					unset($requestBody['category_id']);
+				}
+				if (isset($requestBody['due_date']) && $requestBody['due_date'] === '')
+				{
+					unset($requestBody['due_date']);
+				}
+			}
+			if ($args['entity'] == 'chores')
+			{
+				if (isset($requestBody['product_id']) && $requestBody['product_id'] === '')
+				{
+					unset($requestBody['product_id']);
+				}
+			}
+			if ($args['entity'] == 'userfields')
+			{
+				if (isset($requestBody['sort_number']) && $requestBody['sort_number'] === '')
+				{
+					unset($requestBody['sort_number']);
+				}
+			}
 
 			try
 			{
@@ -293,6 +347,61 @@ class GenericEntityApiController extends BaseApiController
 		{
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
+	}
+
+	private function NormalizeEmptyStringsForNullableColumns($entity, $requestBody)
+	{
+		if ($requestBody === null || !is_array($requestBody))
+		{
+			return $requestBody;
+		}
+
+		if ($this->getDatabaseService()->GetDatabaseType() === 'sqlite')
+		{
+			return $requestBody;
+		}
+
+		$entityName = strtolower(preg_replace('/List$/', '', $entity));
+		if (self::$NullableNumericDateColumns === null)
+		{
+			$dbName = defined('GROCY_DATABASE_NAME') ? GROCY_DATABASE_NAME : 'grocy';
+			$pdo = $this->getDatabaseService()->GetDbConnectionRaw();
+			$stmt = $pdo->prepare(
+				"SELECT table_name, column_name FROM information_schema.columns "
+				. "WHERE table_schema = :db "
+				. "AND is_nullable = 'YES' "
+				. "AND data_type IN ('int','tinyint','smallint','mediumint','bigint','decimal','float','double','date','datetime','timestamp')"
+			);
+			$stmt->execute([':db' => $dbName]);
+			$map = [];
+			foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row)
+			{
+				$table = strtolower($row['table_name']);
+				$column = strtolower($row['column_name']);
+				if (!isset($map[$table]))
+				{
+					$map[$table] = [];
+				}
+				$map[$table][$column] = true;
+			}
+			self::$NullableNumericDateColumns = $map;
+		}
+
+		if (!isset(self::$NullableNumericDateColumns[$entityName]))
+		{
+			return $requestBody;
+		}
+
+		$nullableColumns = self::$NullableNumericDateColumns[$entityName];
+		foreach ($requestBody as $key => $value)
+		{
+			if ($value === '' && isset($nullableColumns[strtolower($key)]))
+			{
+				unset($requestBody[$key]);
+			}
+		}
+
+		return $requestBody;
 	}
 
 	private function IsEntityWithEditRequiresAdmin($entity)

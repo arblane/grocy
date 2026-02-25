@@ -1,0 +1,108 @@
+-- Converted trigger (MariaDB compatible)
+
+DELIMITER $$
+CREATE TRIGGER create_internal_recipe AFTER INSERT ON meal_plan FOR EACH ROW
+BEGIN
+/* This contains practically the same logic as the trigger remove_internal_recipe */
+
+	-- Create a recipe per day
+	DELETE FROM recipes
+	WHERE name = NEW.day
+		AND type = 'mealplan-day';
+
+	INSERT OR REPLACE INTO recipes
+		(id, name, type)
+	VALUES
+		((SELECT MIN(id) - 1 FROM recipes), NEW.day, 'mealplan-day');
+
+	-- Create a recipe per week
+	DELETE FROM recipes
+	WHERE name = TRIM(LEADING '0' FROM DATE_FORMAT(NEW.day, '%Y-%v'))
+		AND type = 'mealplan-week';
+
+	INSERT INTO recipes
+		(id, name, type)
+	VALUES
+		((SELECT MIN(id) - 1 FROM recipes), TRIM(LEADING '0' FROM DATE_FORMAT(NEW.day, '%Y-%v')), 'mealplan-week');
+
+	-- Delete all current nestings entries for the day and week recipe
+	DELETE FROM recipes_nestings
+	WHERE recipe_id IN (SELECT id FROM recipes WHERE name = NEW.day AND type = 'mealplan-day')
+		OR recipe_id IN (SELECT id FROM recipes WHERE name = TRIM(LEADING '0' FROM DATE_FORMAT(NEW.day, '%Y-%v')) AND type = 'mealplan-week');
+
+	-- Add all recipes for this day as included recipes in the day-recipe
+	INSERT INTO recipes_nestings
+		(recipe_id, includes_recipe_id, servings)
+	SELECT (SELECT id FROM recipes WHERE name = NEW.day AND type = 'mealplan-day'), recipe_id, SUM(recipe_servings)
+	FROM meal_plan
+	WHERE day = NEW.day
+		AND type = 'recipe'
+		AND recipe_id IS NOT NULL
+	GROUP BY recipe_id;
+
+	-- Add all recipes for this week as included recipes in the week-recipe
+	INSERT INTO recipes_nestings
+		(recipe_id, includes_recipe_id, servings)
+	SELECT (SELECT id FROM recipes WHERE name = TRIM(LEADING '0' FROM DATE_FORMAT(NEW.day, '%Y-%v')) AND type = 'mealplan-week'), recipe_id, SUM(recipe_servings)
+
+	FROM meal_plan
+	WHERE DATE_FORMAT(day, '%Y-%v') = DATE_FORMAT(NEW.day, '%Y-%v')
+		AND type = 'recipe'
+		AND recipe_id IS NOT NULL
+	GROUP BY recipe_id;
+
+	-- Add all products for this day as ingredients in the day-recipe
+	INSERT INTO recipes_pos
+		(recipe_id, product_id, amount, qu_id)
+	SELECT (SELECT id FROM recipes WHERE name = NEW.day AND type = 'mealplan-day'), product_id, SUM(product_amount), product_qu_id
+	FROM meal_plan
+	WHERE day = NEW.day
+		AND type = 'product'
+		AND product_id IS NOT NULL
+	GROUP BY product_id, product_qu_id;
+
+	-- Add all products for this week as ingredients in the week-recipe
+	INSERT INTO recipes_pos
+		(recipe_id, product_id, amount, qu_id)
+	SELECT (SELECT id FROM recipes WHERE name = TRIM(LEADING '0' FROM DATE_FORMAT(NEW.day, '%Y-%v')) AND type = 'mealplan-week'), product_id, SUM(product_amount), product_qu_id
+	FROM meal_plan
+	WHERE DATE_FORMAT(day, '%Y-%v') = DATE_FORMAT(NEW.day, '%Y-%v')
+		AND type = 'product'
+		AND product_id IS NOT NULL
+	GROUP BY product_id, product_qu_id;
+
+	-- Create a shadow recipe per meal plan recipe
+	INSERT INTO recipes
+		(id, name, type)
+	SELECT (SELECT MIN(id) - 1 FROM recipes), CAST(NEW.day AS TEXT) || '#' || CAST(id AS TEXT), 'mealplan-shadow'
+	FROM meal_plan
+	WHERE id = NEW.id
+		AND type = 'recipe'
+		AND recipe_id IS NOT NULL;
+
+	INSERT INTO recipes_nestings
+		(recipe_id, includes_recipe_id, servings)
+	SELECT (SELECT id FROM recipes WHERE name = CAST(NEW.day AS TEXT) || '#' || CAST(meal_plan.id AS TEXT) AND type = 'mealplan-shadow'), recipe_id, recipe_servings
+	FROM meal_plan
+	WHERE id = NEW.id
+		AND type = 'recipe'
+		AND recipe_id IS NOT NULL;
+
+	-- Enforce "when empty then null" for certain columns
+	UPDATE meal_plan
+	SET recipe_id = NULL
+	WHERE id = NEW.id
+		AND IFNULL(recipe_id, '') = '';
+
+	UPDATE meal_plan
+	SET product_id = NULL
+	WHERE id = NEW.id
+		AND IFNULL(product_id, '') = '';
+
+	UPDATE meal_plan
+	SET product_qu_id = NULL
+	WHERE id = NEW.id
+		AND IFNULL(product_qu_id, '') = '';
+END;
+$$
+DELIMITER ;

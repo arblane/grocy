@@ -30,17 +30,45 @@ Grocy.Components.ProductAmountPicker.Reload = function(productId, destinationQuI
 				$("#qu_id").append('<option value="' + conversion.to_qu_id + '" data-qu-factor="' + conversion.factor + '" data-qu-name-plural="' + conversion.to_qu_name_plural + '">' + conversion.to_qu_name + '</option>');
 			}
 		});
+
+		if (!$('#qu_id option[value="' + destinationQuId + '"]').length)
+		{
+			var destinationQu = FindObjectInArrayByPropertyValue(Grocy.QuantityUnits, 'id', destinationQuId);
+			if (destinationQu)
+			{
+				$("#qu_id").append('<option value="' + destinationQu.id + '" data-qu-factor="1" data-qu-name-plural="' + destinationQu.name_plural + '">' + destinationQu.name + '</option>');
+			}
+		}
 	}
 
 	if (!Grocy.Components.ProductAmountPicker.InitialValueSet || forceInitialDisplayQu)
 	{
-		$("#qu_id").val($("#qu_id").attr("data-initial-qu-id"));
+		var initialQuId = $("#qu_id").attr("data-initial-qu-id");
+		if (!initialQuId || initialQuId === "-1")
+		{
+			console.warn("ProductAmountPicker: invalid data-initial-qu-id, falling back to destination QU", { initialQuId: initialQuId, destinationQuId: destinationQuId });
+			initialQuId = destinationQuId;
+		}
+		if ($('#qu_id option[value="' + initialQuId + '"]').length)
+		{
+			$("#qu_id").val(initialQuId);
+		}
 	}
 
 	if (!Grocy.Components.ProductAmountPicker.InitialValueSet)
 	{
-		var convertedAmount = ($("#display_amount").val() * $("#qu_id option:selected").attr("data-qu-factor")).toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts });
-		$("#display_amount").val(convertedAmount);
+		var displayAmountValue = Number.parseFloat($("#display_amount").val()) || 0;
+		var displayQuFactor = Number.parseFloat($("#qu_id option:selected").attr("data-qu-factor"));
+		if (!Number.isFinite(displayQuFactor) || displayQuFactor === 0)
+		{
+			displayQuFactor = 1;
+		}
+		var convertedAmountValue = displayAmountValue * displayQuFactor;
+		if (!Number.isFinite(convertedAmountValue))
+		{
+			convertedAmountValue = 0;
+		}
+		$("#display_amount").val(convertedAmountValue);
 
 		Grocy.Components.ProductAmountPicker.InitialValueSet = true;
 	}
@@ -84,7 +112,15 @@ Grocy.Components.ProductAmountPicker.AllowAnyQu = function(keepInitialQu = false
 
 	if (keepInitialQu)
 	{
-		Grocy.Components.ProductAmountPicker.SetQuantityUnit($("#qu_id").attr("data-initial-qu-id"));
+		var initialQuId = $("#qu_id").attr("data-initial-qu-id");
+		if (initialQuId && initialQuId !== "-1" && $('#qu_id option[value="' + initialQuId + '"]').length)
+		{
+			Grocy.Components.ProductAmountPicker.SetQuantityUnit(initialQuId);
+		}
+		else if (initialQuId && initialQuId !== "-1")
+		{
+			console.warn("ProductAmountPicker: initial QU not available in options", { initialQuId: initialQuId });
+		}
 	}
 
 	$("#qu_id").removeAttr("disabled");
@@ -102,8 +138,12 @@ Grocy.Components.ProductAmountPicker.Reset = function()
 $(".input-group-productamountpicker").on("change", function()
 {
 	var selectedQuName = $("#qu_id option:selected").text();
-	var quFactor = $("#qu_id option:selected").attr("data-qu-factor");
-	var amount = $("#display_amount").val();
+	var quFactor = Number.parseFloat($("#qu_id option:selected").attr("data-qu-factor"));
+	if (!Number.isFinite(quFactor) || quFactor === 0)
+	{
+		quFactor = 1;
+	}
+	var amount = Number.parseFloat($("#display_amount").val()) || 0;
 	var destinationAmount = amount / quFactor;
 	var destinationQuName = __n(destinationAmount, $("#qu_id").attr("data-destination-qu-name"), $("#qu_id").attr("data-destination-qu-name-plural"), true);
 

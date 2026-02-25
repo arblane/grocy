@@ -12,6 +12,11 @@ class DatabaseMigrationService extends BaseService
 
 	public function MigrateDatabase()
 	{
+		if ($this->getDatabaseService()->GetDatabaseType() !== 'sqlite')
+		{
+			return;
+		}
+
 		$this->getDatabaseService()->ExecuteDbStatement("CREATE TABLE IF NOT EXISTS migrations (migration INTEGER NOT NULL PRIMARY KEY UNIQUE, execution_time_timestamp DATETIME DEFAULT (datetime('now', 'localtime')))");
 
 		$migrationFiles = [];

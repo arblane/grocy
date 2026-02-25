@@ -32,7 +32,6 @@ Grocy.Components.ProductPicker.Clear = function()
 {
 	Grocy.Components.ProductPicker.SetValue('');
 	Grocy.Components.ProductPicker.SetId(null);
-	$('#product_id').attr("barcode", "null");
 }
 
 Grocy.Components.ProductPicker.InProductAddWorkflow = function()

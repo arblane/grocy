@@ -141,7 +141,15 @@ $(".calendar").each(function()
 				recipe.name = recipe.name.escapeHTML();
 
 				var internalShadowRecipe = FindObjectInArrayByPropertyValue(internalRecipes, "name", mealPlanEntry.day + "#" + mealPlanEntry.id);
+				if (internalShadowRecipe === null || internalShadowRecipe === undefined)
+				{
+					return false;
+				}
 				var resolvedRecipe = FindObjectInArrayByPropertyValue(recipesResolved, "recipe_id", internalShadowRecipe.id);
+				if (resolvedRecipe === null || resolvedRecipe === undefined)
+				{
+					return false;
+				}
 
 				element.attr("data-recipe", event.recipe);
 

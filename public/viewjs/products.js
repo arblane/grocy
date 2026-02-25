@@ -67,10 +67,11 @@ if (typeof GetUriParam("product-group") !== "undefined")
 
 $(document).on('click', '.product-delete-button', function(e)
 {
+	var triggerButton = e.currentTarget;
 	var objectName = $(e.currentTarget).attr('data-product-name');
 	var objectId = $(e.currentTarget).attr('data-product-id');
 
-	bootbox.confirm({
+	var dialog = bootbox.confirm({
 		message: __t('Are you sure you want to delete product "%s"?', objectName) + '<br><br>' + __t('This also removes any stock amount, the journal and all other references of this product - consider disabling it instead, if you want to keep that and just hide the product.'),
 		closeButton: false,
 		buttons: {
@@ -85,6 +86,10 @@ $(document).on('click', '.product-delete-button', function(e)
 		},
 		callback: function(result)
 		{
+			if (document.activeElement && document.activeElement.blur)
+			{
+				document.activeElement.blur();
+			}
 			if (result === true)
 			{
 				jsonData = {};
@@ -102,6 +107,17 @@ $(document).on('click', '.product-delete-button', function(e)
 			}
 		}
 	});
+
+	if (dialog)
+	{
+		dialog.on('hidden.bs.modal', function()
+		{
+			if (triggerButton && triggerButton.focus)
+			{
+				triggerButton.focus();
+			}
+		});
+	}
 });
 
 $("#show-disabled").change(function()

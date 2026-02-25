@@ -239,7 +239,7 @@ function RefreshStatistics()
 				var valueSum = 0;
 				result.forEach(element =>
 				{
-					valueSum += element.value;
+					valueSum += Number.parseFloat(element.value) || 0;
 				});
 
 				$("#info-current-stock").text(__n(result.filter(x => !BoolVal(x.product.hide_on_stock_overview)).length, '%s Product', '%s Products') + ", " + __t('%s total value', valueSum.toLocaleString(undefined, { style: "currency", currency: Grocy.Currency })));
