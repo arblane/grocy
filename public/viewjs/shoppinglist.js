@@ -375,6 +375,8 @@ OnListItemRemoved();
 
 $(document).on("click", "#print-shopping-list-button", function(e)
 {
+	e.preventDefault();
+
 	var checkedPrintShowHeader = "";
 	if (BoolVal(Grocy.UserSettings.shopping_list_print_show_header))
 	{
@@ -555,6 +557,15 @@ $(document).on("click", "#print-shopping-list-button", function(e)
 		className: "d-print-none",
 		buttons: printButtons
 	});
+});
+
+$(document).on("keydown", function(e)
+{
+	if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))
+	{
+		e.preventDefault();
+		$("#print-shopping-list-button").trigger("click");
+	}
 });
 
 $("#description").on("summernote.change", function()

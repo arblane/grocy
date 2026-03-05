@@ -102,6 +102,11 @@ $listItem->last_price_total = $listItem->price * $listItem->amount;
 					name="selected-shopping-list"
 					id="selected-shopping-list"
 					value="1">
+				<a id="print-shopping-list-button"
+					class="btn btn-outline-dark responsive-button m-1 mt-md-0 mb-md-0 float-right"
+					href="#">
+					{{ $__t('Print') }}
+				</a>
 				@endif
 			</div>
 		</div>
