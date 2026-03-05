@@ -38,7 +38,7 @@ class DatabaseService
 		return $pdo->query($sql);
 	}
 
-	public function ExecuteDbStatement(string $sql, array $params = null)
+	public function ExecuteDbStatement(string $sql, ?array $params = null)
 	{
 		$pdo = $this->GetDbConnectionRaw();
 		$sql = $this->NormalizeSql($sql);
@@ -111,16 +111,17 @@ class DatabaseService
 		{
 			if ($this->GetDatabaseType() === 'sqlite')
 			{
-				$pdo = new \PDO('sqlite:' . $this->GetDbFilePath());
+				$pdo = new \PDO\Sqlite('sqlite:' . $this->GetDbFilePath());
 				$pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 				$pdo->setAttribute(\PDO::ATTR_ORACLE_NULLS, \PDO::NULL_EMPTY_STRING);
-				$pdo->sqliteCreateFunction('regexp', function ($pattern, $value)
+
+				$pdo->createFunction('regexp', function ($pattern, $value)
 				{
 					mb_regex_encoding('UTF-8');
 					return (false !== mb_ereg($pattern, $value)) ? 1 : 0;
 				});
 
-				$pdo->sqliteCreateFunction('grocy_user_setting', function ($value)
+				$pdo->createFunction('grocy_user_setting', function ($value)
 				{
 					$usersService = new UsersService();
 					return $usersService->GetUserSetting(GROCY_USER_ID, $value);
@@ -128,7 +129,7 @@ class DatabaseService
 
 				// Unfortunately not included by default
 				// https://www.sqlite.org/lang_mathfunc.html#ceil
-				$pdo->sqliteCreateFunction('ceil', function ($value)
+				$pdo->createFunction('ceil', function ($value)
 				{
 					return ceil($value);
 				});
