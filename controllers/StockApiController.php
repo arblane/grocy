@@ -11,6 +11,40 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 class StockApiController extends BaseApiController
 {
+	private function TryParseConsumeRequestBodyWithLocalizedAmount(Request $request)
+	{
+		$bodyStream = $request->getBody();
+		if ($bodyStream->isSeekable())
+		{
+			$bodyStream->rewind();
+		}
+
+		$rawBody = $bodyStream->getContents();
+		if ($bodyStream->isSeekable())
+		{
+			$bodyStream->rewind();
+		}
+
+		if (empty($rawBody))
+		{
+			return null;
+		}
+
+		$normalizedBody = preg_replace('/("amount"\s*:\s*-?\d+),(\d+)/', '$1.$2', $rawBody);
+		if ($normalizedBody === null || $normalizedBody === $rawBody)
+		{
+			return null;
+		}
+
+		$decodedBody = json_decode($normalizedBody, true);
+		if (json_last_error() !== JSON_ERROR_NONE || !is_array($decodedBody))
+		{
+			return null;
+		}
+
+		return $decodedBody;
+	}
+
 	public function AddMissingProductsToShoppingList(Request $request, Response $response, array $args)
 	{
 		User::checkPermission($request, User::PERMISSION_SHOPPINGLIST_ITEMS_ADD);
@@ -260,6 +294,14 @@ class StockApiController extends BaseApiController
 		User::checkPermission($request, User::PERMISSION_STOCK_CONSUME);
 
 		$requestBody = $this->GetParsedAndFilteredRequestBody($request);
+		if ($requestBody === null)
+		{
+			$localizedRequestBody = $this->TryParseConsumeRequestBodyWithLocalizedAmount($request);
+			if ($localizedRequestBody !== null)
+			{
+				$requestBody = $localizedRequestBody;
+			}
+		}
 
 		try
 		{
