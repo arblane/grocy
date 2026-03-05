@@ -38,6 +38,7 @@ OFFLINE_QUIESCE_TIMEOUT="${OFFLINE_QUIESCE_TIMEOUT:-45}"
 OFFLINE_KILL_GROCY_SESSIONS="${OFFLINE_KILL_GROCY_SESSIONS:-1}"
 
 SMALL_WORDS_CSV="${SMALL_WORDS_CSV:-a,an,and,as,at,but,by,for,from,in,into,nor,of,on,onto,or,over,per,so,the,to,up,via,vs,with,yet}"
+PRESERVE_UPPER_WORDS_CSV="${PRESERVE_UPPER_WORDS_CSV:-aa,aaa}"
 
 build_small_words_sql_list() {
   local csv="$1"
@@ -66,7 +67,35 @@ build_small_words_sql_list() {
   echo "${sql_list}"
 }
 
+build_preserve_upper_words_sql_list() {
+  local csv="$1"
+  local IFS=','
+  local -a words=()
+  local word
+  local sql_list=""
+
+  read -r -a words <<< "$csv"
+
+  for word in "${words[@]}"; do
+    word="$(echo "${word}" | tr '[:upper:]' '[:lower:]' | xargs)"
+    [[ -z "${word}" ]] && continue
+    word="${word//\'/\'\'}"
+    if [[ -z "${sql_list}" ]]; then
+      sql_list="'${word}'"
+    else
+      sql_list+=",'${word}'"
+    fi
+  done
+
+  if [[ -z "${sql_list}" ]]; then
+    sql_list="'__none__'"
+  fi
+
+  echo "${sql_list}"
+}
+
 SMALL_WORDS_SQL_LIST="$(build_small_words_sql_list "${SMALL_WORDS_CSV}")"
+PRESERVE_UPPER_WORDS_SQL_LIST="$(build_preserve_upper_words_sql_list "${PRESERVE_UPPER_WORDS_CSV}")"
 
 print_usage() {
   cat <<EOF
@@ -88,6 +117,10 @@ Configuration:
   SMALL_WORDS_CSV     Comma-separated lowercase words to keep lowercase
                       in non-leading positions.
                       Default: ${SMALL_WORDS_CSV}
+  PRESERVE_UPPER_WORDS_CSV
+                      Comma-separated words to force UPPERCASE output
+                      regardless of position.
+                      Default: ${PRESERVE_UPPER_WORDS_CSV}
   REFRESH_FUNCTIONS   Set to 1 to force DROP/CREATE of helper functions.
                       Default: ${REFRESH_FUNCTIONS}
   LOCK_WAIT_TIMEOUT   InnoDB lock wait timeout seconds per attempt.
@@ -120,6 +153,7 @@ Examples:
   $0 apply
   $0 apply-offline
   $0 apply-resume 20260225153045
+  PRESERVE_UPPER_WORDS_CSV="aa,aaa,c,d" $0 preview
   SMALL_WORDS_CSV="a,an,and,as,at,by,for,in,of,on,the,to,with" $0 preview
   $0 rollback 20260225153045
 EOF
@@ -299,6 +333,8 @@ BEGIN
         SET word_index = word_index + 1;
         IF word_index > 1 AND word IN (${SMALL_WORDS_SQL_LIST}) THEN
           SET out_s = CONCAT(out_s, word);
+        ELSEIF word IN (${PRESERVE_UPPER_WORDS_SQL_LIST}) THEN
+          SET out_s = CONCAT(out_s, UPPER(word));
         ELSE
           SET out_s = CONCAT(out_s, proper_word(word));
         END IF;
@@ -314,6 +350,8 @@ BEGIN
     SET word_index = word_index + 1;
     IF word_index > 1 AND word IN (${SMALL_WORDS_SQL_LIST}) THEN
       SET out_s = CONCAT(out_s, word);
+    ELSEIF word IN (${PRESERVE_UPPER_WORDS_SQL_LIST}) THEN
+      SET out_s = CONCAT(out_s, UPPER(word));
     ELSE
       SET out_s = CONCAT(out_s, proper_word(word));
     END IF;
