@@ -1,15 +1,12 @@
 -- Converted trigger (MariaDB compatible)
+-- NOTE: Cache refresh queries against products_average_price/products_last_purchased
+-- inside stock_log triggers fail in MariaDB (ERROR 1356) because these views
+-- reference stock_log. Price caches are refreshed outside trigger context.
 
 DELIMITER $$
 CREATE TRIGGER stock_log_DEL AFTER DELETE ON stock_log FOR EACH ROW
 BEGIN
--- Update products_average_price cache
-	DELETE FROM cache__products_average_price
-	WHERE product_id = OLD.id;
-
-	-- Update products_last_purchased cache
-	DELETE FROM cache__products_last_purchased
-	WHERE product_id = OLD.id;
+	DO 0;
 END;
 $$
 DELIMITER ;
