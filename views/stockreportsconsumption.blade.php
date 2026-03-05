@@ -34,7 +34,7 @@
 				@foreach($products as $product)
 				<option value="{{ $product->id }}"
 					@if($selectedProductId !== null && (int)$product->id === (int)$selectedProductId) selected="selected" @endif>
-					#{{ $product->id }} - {{ $product->name }}
+					{{ $product->name }}
 				</option>
 				@endforeach
 			</select>
