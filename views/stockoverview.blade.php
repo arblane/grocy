@@ -35,7 +35,6 @@
 					href="{{ $U('/stockentries') }}">
 					{{ $__t('Stock entries') }}
 				</a>
-				@if(GROCY_FEATURE_FLAG_STOCK_LOCATION_TRACKING || GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
 				<div class="dropdown">
 					<a class="btn btn-outline-dark responsive-button m-1 mt-md-0 mb-md-0 float-right dropdown-toggle"
 						href="#"
@@ -47,13 +46,14 @@
 						<a class="dropdown-item"
 							href="{{ $U('/locationcontentsheet') }}">{{ $__t('Location Content Sheet') }}</a>
 						@endif
+						<a class="dropdown-item"
+							href="{{ $U('/stockreports/consumption') }}">{{ $__t('Consumption rates') }}</a>
 						@if(GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
 						<a class="dropdown-item"
 							href="{{ $U('/stockreports/spendings') }}">{{ $__t('Spendings') }}</a>
 						@endif
 					</div>
 				</div>
-				@endif
 			</div>
 		</div>
 		<div class="border-top border-bottom my-2 py-1">
