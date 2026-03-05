@@ -68,8 +68,16 @@ class GenericEntityApiController extends BaseApiController
 				}
 			}
 
+			$syncInverseQuConversions = $this->ShouldSyncInverseQuantityUnitConversions($args['entity']);
+			$dbConnection = $this->getDatabaseService()->GetDbConnectionRaw();
+
 			try
 			{
+				if ($syncInverseQuConversions)
+				{
+					$dbConnection->beginTransaction();
+				}
+
 				if ($requestBody === null)
 				{
 					throw new \Exception('Request body could not be parsed (probably invalid JSON format or missing/wrong Content-Type header)');
@@ -79,10 +87,20 @@ class GenericEntityApiController extends BaseApiController
 				$newRow->save();
 				$newObjectId = $this->getDatabase()->lastInsertId();
 
+				if ($syncInverseQuConversions)
+				{
+					$this->SyncInverseQuantityUnitConversionById((int) $newObjectId);
+				}
+
 				// TODO: This should be better done somehow in StockService
 				if ($args['entity'] == 'products' && boolval($this->getUsersService()->GetUserSetting(GROCY_USER_ID, 'shopping_list_auto_add_below_min_stock_amount')))
 				{
 					$this->getStockService()->AddMissingProductsToShoppingList($this->getUsersService()->GetUserSetting(GROCY_USER_ID, 'shopping_list_auto_add_below_min_stock_amount_list_id'));
+				}
+
+				if ($syncInverseQuConversions)
+				{
+					$dbConnection->commit();
 				}
 
 				return $this->ApiResponse($response, [
@@ -91,6 +109,11 @@ class GenericEntityApiController extends BaseApiController
 			}
 			catch (\Exception $ex)
 			{
+				if ($syncInverseQuConversions && $dbConnection->inTransaction())
+				{
+					$dbConnection->rollBack();
+				}
+
 				return $this->GenericErrorResponse($response, $ex->getMessage());
 			}
 		}
@@ -134,15 +157,47 @@ class GenericEntityApiController extends BaseApiController
 				User::checkPermission($request, User::PERMISSION_ADMIN);
 			}
 
+			$syncInverseQuConversions = $this->ShouldSyncInverseQuantityUnitConversions($args['entity']);
+			$dbConnection = $this->getDatabaseService()->GetDbConnectionRaw();
+			$quConversionRow = null;
+
 			$row = $this->getDatabase()->{$args['entity']}($args['objectId']);
 			if ($row == null)
 			{
 				return $this->GenericErrorResponse($response, 'Object not found', 400);
 			}
 
-			$row->delete();
+			try
+			{
+				if ($syncInverseQuConversions)
+				{
+					$dbConnection->beginTransaction();
+					$quConversionRow = $this->GetQuantityUnitConversionById((int) $args['objectId']);
+				}
 
-			return $this->EmptyApiResponse($response);
+				$row->delete();
+
+				if ($syncInverseQuConversions && $quConversionRow !== null)
+				{
+					$this->DeleteInverseQuantityUnitConversion($quConversionRow);
+				}
+
+				if ($syncInverseQuConversions)
+				{
+					$dbConnection->commit();
+				}
+
+				return $this->EmptyApiResponse($response);
+			}
+			catch (\Exception $ex)
+			{
+				if ($syncInverseQuConversions && $dbConnection->inTransaction())
+				{
+					$dbConnection->rollBack();
+				}
+
+				return $this->GenericErrorResponse($response, $ex->getMessage());
+			}
 		}
 		else
 		{
@@ -208,8 +263,17 @@ class GenericEntityApiController extends BaseApiController
 				}
 			}
 
+			$syncInverseQuConversions = $this->ShouldSyncInverseQuantityUnitConversions($args['entity']);
+			$dbConnection = $this->getDatabaseService()->GetDbConnectionRaw();
+			$oldQuConversionRow = null;
+
 			try
 			{
+				if ($syncInverseQuConversions)
+				{
+					$dbConnection->beginTransaction();
+				}
+
 				if ($requestBody === null)
 				{
 					throw new \Exception('Request body could not be parsed (probably invalid JSON format or missing/wrong Content-Type header)');
@@ -218,10 +282,26 @@ class GenericEntityApiController extends BaseApiController
 				$row = $this->getDatabase()->{$args['entity']}($args['objectId']);
 				if ($row == null)
 				{
-					return $this->GenericErrorResponse($response, 'Object not found', 400);
+					throw new \Exception('Object not found');
+				}
+
+				if ($syncInverseQuConversions)
+				{
+					$oldQuConversionRow = $this->GetQuantityUnitConversionById((int) $args['objectId']);
 				}
 
 				$row->update($requestBody);
+
+				if ($syncInverseQuConversions)
+				{
+					$newQuConversionRow = $this->GetQuantityUnitConversionById((int) $args['objectId']);
+					if ($oldQuConversionRow !== null && $newQuConversionRow !== null && !$this->IsSameQuantityUnitConversionRelation($oldQuConversionRow, $newQuConversionRow))
+					{
+						$this->DeleteInverseQuantityUnitConversion($oldQuConversionRow, (int) $args['objectId']);
+					}
+
+					$this->SyncInverseQuantityUnitConversionById((int) $args['objectId']);
+				}
 
 				// TODO: This should be better done somehow in StockService
 				if ($args['entity'] == 'products' && boolval($this->getUsersService()->GetUserSetting(GROCY_USER_ID, 'shopping_list_auto_add_below_min_stock_amount')))
@@ -229,10 +309,20 @@ class GenericEntityApiController extends BaseApiController
 					$this->getStockService()->AddMissingProductsToShoppingList($this->getUsersService()->GetUserSetting(GROCY_USER_ID, 'shopping_list_auto_add_below_min_stock_amount_list_id'));
 				}
 
+				if ($syncInverseQuConversions)
+				{
+					$dbConnection->commit();
+				}
+
 				return $this->EmptyApiResponse($response);
 			}
 			catch (\Exception $ex)
 			{
+				if ($syncInverseQuConversions && $dbConnection->inTransaction())
+				{
+					$dbConnection->rollBack();
+				}
+
 				return $this->GenericErrorResponse($response, $ex->getMessage());
 			}
 		}
@@ -347,6 +437,169 @@ class GenericEntityApiController extends BaseApiController
 		{
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
+	}
+
+	private function ShouldSyncInverseQuantityUnitConversions($entity)
+	{
+		return $entity === 'quantity_unit_conversions' && $this->getDatabaseService()->GetDatabaseType() !== 'sqlite';
+	}
+
+	private function GetQuantityUnitConversionById($id)
+	{
+		$statement = $this->getDatabaseService()->GetDbConnectionRaw()->prepare('SELECT id, from_qu_id, to_qu_id, factor, product_id FROM quantity_unit_conversions WHERE id = ? LIMIT 1');
+		$statement->execute([$id]);
+		$row = $statement->fetch(\PDO::FETCH_ASSOC);
+
+		if ($row === false)
+		{
+			return null;
+		}
+
+		return [
+			'id' => (int) $row['id'],
+			'from_qu_id' => (int) $row['from_qu_id'],
+			'to_qu_id' => (int) $row['to_qu_id'],
+			'factor' => (float) $row['factor'],
+			'product_id' => $row['product_id'] === null ? null : (int) $row['product_id']
+		];
+	}
+
+	private function SyncInverseQuantityUnitConversionById($id)
+	{
+		$sourceRow = $this->GetQuantityUnitConversionById($id);
+		if ($sourceRow === null)
+		{
+			return;
+		}
+
+		$this->EnsureInverseQuantityUnitConversion($sourceRow);
+	}
+
+	private function EnsureInverseQuantityUnitConversion($sourceRow)
+	{
+		if ((int) $sourceRow['from_qu_id'] === (int) $sourceRow['to_qu_id'])
+		{
+			return;
+		}
+
+		if ((float) $sourceRow['factor'] == 0.0)
+		{
+			throw new \Exception('Factor cannot be zero');
+		}
+
+		$dbConnection = $this->getDatabaseService()->GetDbConnectionRaw();
+		$inverseFactor = 1 / (float) $sourceRow['factor'];
+
+		$selectInverseIds = $dbConnection->prepare(
+			'SELECT id
+			FROM quantity_unit_conversions
+			WHERE from_qu_id = ?
+				AND to_qu_id = ?
+				AND ((product_id IS NULL AND ? IS NULL) OR product_id = ?)
+				AND id != ?
+			ORDER BY id'
+		);
+		$selectInverseIds->execute([
+			(int) $sourceRow['to_qu_id'],
+			(int) $sourceRow['from_qu_id'],
+			$sourceRow['product_id'],
+			$sourceRow['product_id'],
+			(int) $sourceRow['id']
+		]);
+
+		$inverseIds = array_map('intval', $selectInverseIds->fetchAll(\PDO::FETCH_COLUMN));
+		if (count($inverseIds) === 0)
+		{
+			$insertInverse = $dbConnection->prepare(
+				'INSERT INTO quantity_unit_conversions
+					(from_qu_id, to_qu_id, factor, product_id)
+				VALUES
+					(?, ?, ?, ?)'
+			);
+			$insertInverse->execute([
+				(int) $sourceRow['to_qu_id'],
+				(int) $sourceRow['from_qu_id'],
+				$inverseFactor,
+				$sourceRow['product_id']
+			]);
+
+			return;
+		}
+
+		$keepId = $inverseIds[0];
+
+		if (count($inverseIds) > 1)
+		{
+			$inverseIdsToDelete = array_slice($inverseIds, 1);
+			$placeholders = implode(', ', array_fill(0, count($inverseIdsToDelete), '?'));
+			$deleteDuplicates = $dbConnection->prepare('DELETE FROM quantity_unit_conversions WHERE id IN (' . $placeholders . ')');
+			$deleteDuplicates->execute($inverseIdsToDelete);
+		}
+
+		$updateInverse = $dbConnection->prepare(
+			'UPDATE quantity_unit_conversions
+			SET from_qu_id = ?,
+				to_qu_id = ?,
+				factor = ?,
+				product_id = ?
+			WHERE id = ?'
+		);
+		$updateInverse->execute([
+			(int) $sourceRow['to_qu_id'],
+			(int) $sourceRow['from_qu_id'],
+			$inverseFactor,
+			$sourceRow['product_id'],
+			$keepId
+		]);
+	}
+
+	private function DeleteInverseQuantityUnitConversion($sourceRow, $excludeId = null)
+	{
+		if ((int) $sourceRow['from_qu_id'] === (int) $sourceRow['to_qu_id'])
+		{
+			return;
+		}
+
+		$sql =
+			'DELETE FROM quantity_unit_conversions
+			WHERE from_qu_id = ?
+				AND to_qu_id = ?
+				AND ((product_id IS NULL AND ? IS NULL) OR product_id = ?)';
+		$params = [
+			(int) $sourceRow['to_qu_id'],
+			(int) $sourceRow['from_qu_id'],
+			$sourceRow['product_id'],
+			$sourceRow['product_id']
+		];
+
+		if ($excludeId !== null)
+		{
+			$sql .= ' AND id != ?';
+			$params[] = (int) $excludeId;
+		}
+
+		$deleteInverse = $this->getDatabaseService()->GetDbConnectionRaw()->prepare($sql);
+		$deleteInverse->execute($params);
+	}
+
+	private function IsSameQuantityUnitConversionRelation($leftRow, $rightRow)
+	{
+		if ((int) $leftRow['from_qu_id'] !== (int) $rightRow['from_qu_id'])
+		{
+			return false;
+		}
+
+		if ((int) $leftRow['to_qu_id'] !== (int) $rightRow['to_qu_id'])
+		{
+			return false;
+		}
+
+		if ($leftRow['product_id'] === null && $rightRow['product_id'] === null)
+		{
+			return true;
+		}
+
+		return (int) $leftRow['product_id'] === (int) $rightRow['product_id'];
 	}
 
 	private function NormalizeEmptyStringsForNullableColumns($entity, $requestBody)
