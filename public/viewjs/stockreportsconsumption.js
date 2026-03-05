@@ -1,7 +1,7 @@
 var consumptionMetricsTable = $("#consumption-metrics-table").DataTable({
-	"order": [[4, "asc"], [0, "asc"]],
+	"order": [[3, "asc"], [0, "asc"]],
 	"columnDefs": [
-		{ "type": "num", "targets": [1, 2, 3, 4] }
+		{ "type": "num", "targets": [1, 2, 3] }
 	].concat($.fn.dataTable.defaults.columnDefs)
 });
 $("#consumption-metrics-table tbody").removeClass("d-none");
