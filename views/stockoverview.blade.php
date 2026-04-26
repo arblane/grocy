@@ -200,9 +200,9 @@
 							href="#"
 							data-toggle="tooltip"
 							data-placement="left"
-							title="{{ $__t('Consume %1$s of %2$s', $currentStockEntry->quick_consume_amount_qu_consume . ' ' . $currentStockEntry->qu_consume_name, $currentStockEntry->product_name) }}"
+							title="{{ $__t('Consume %1$s of %2$s', $currentStockEntry->quick_consume_amount_qu_consume . ' ' . $currentStockEntry->qu_consume_name, $currentStockEntry->product_display_name) }}"
 							data-product-id="{{ $currentStockEntry->product_id }}"
-							data-product-name="{{ $currentStockEntry->product_name }}"
+							data-product-name="{{ $currentStockEntry->product_display_name }}"
 							data-product-qu-name="{{ $currentStockEntry->qu_stock_name }}"
 							data-consume-amount="{{ $currentStockEntry->quick_consume_amount }}">
 							<i class="fa-solid fa-utensils"></i> <span class="locale-number locale-number-quantity-amount">{{ $currentStockEntry->quick_consume_amount_qu_consume }}</span>
@@ -212,9 +212,9 @@
 							href="#"
 							data-toggle="tooltip"
 							data-placement="right"
-							title="{{ $__t('Consume all %s which are currently in stock', $currentStockEntry->product_name) }}"
+							title="{{ $__t('Consume all %s which are currently in stock', $currentStockEntry->product_display_name) }}"
 							data-product-id="{{ $currentStockEntry->product_id }}"
-							data-product-name="{{ $currentStockEntry->product_name }}"
+							data-product-name="{{ $currentStockEntry->product_display_name }}"
 							data-product-qu-name="{{ $currentStockEntry->qu_stock_name }}"
 							data-consume-amount="@if($currentStockEntry->enable_tare_weight_handling == 1){{$currentStockEntry->tare_weight}}@else{{$currentStockEntry->amount}}@endif"
 							data-original-total-stock-amount="{{$currentStockEntry->amount}}">
@@ -225,9 +225,9 @@
 							href="#"
 							data-toggle="tooltip"
 							data-placement="left"
-							title="{{ $__t('Mark %1$s of %2$s as open', $currentStockEntry->quick_open_amount_qu_consume . ' ' . $currentStockEntry->qu_consume_name, $currentStockEntry->product_name) }}"
+							title="{{ $__t('Mark %1$s of %2$s as open', $currentStockEntry->quick_open_amount_qu_consume . ' ' . $currentStockEntry->qu_consume_name, $currentStockEntry->product_display_name) }}"
 							data-product-id="{{ $currentStockEntry->product_id }}"
-							data-product-name="{{ $currentStockEntry->product_name }}"
+							data-product-name="{{ $currentStockEntry->product_display_name }}"
 							data-product-qu-name="{{ $currentStockEntry->qu_stock_name }}"
 							data-open-amount="{{ $currentStockEntry->quick_open_amount }}">
 							<i class="fa-solid fa-box-open"></i> <span class="locale-number locale-number-quantity-amount">{{ $currentStockEntry->quick_open_amount_qu_consume }}</span>
@@ -274,7 +274,7 @@
 								<div class="dropdown-divider"></div>
 								<a class="dropdown-item"
 									type="button"
-									href="{{ $U('/recipes?search=') }}{{ $currentStockEntry->product_name }}">
+									href="{{ $U('/recipes?search=') }}{{ $currentStockEntry->product_display_name }}">
 									<span class="dropdown-item-text">{{ $__t('Search for recipes containing this product') }}</span>
 								</a>
 								@endif
@@ -328,7 +328,7 @@
 					</td>
 					<td class="productcard-trigger cursor-link"
 						data-product-id="{{ $currentStockEntry->product_id }}">
-						{{ $currentStockEntry->product_name }}
+						{{ $currentStockEntry->product_display_name }}
 						<span class="d-none">{{ $currentStockEntry->product_barcodes }}</span>
 					</td>
 					<td>

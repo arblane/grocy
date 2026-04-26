@@ -76,8 +76,9 @@ $(".apikey-show-qr-button").on("click", function()
 	var apiKey = button.data("apikey-key");
 	var apiKeyType = button.data("apikey-type");
 	var apiKeyDescription = button.data("apikey-description");
+	var apiKeyApiUrl = button.data("apikey-api-url");
 
-	var content = U("/api") + "|" + apiKey;
+	var content = apiKeyApiUrl + "|" + apiKey;
 	if (apiKeyType === "special-purpose-calendar-ical")
 	{
 		content = U("/api/calendar/ical?secret=" + apiKey);

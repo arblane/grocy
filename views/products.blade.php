@@ -4,6 +4,45 @@
 
 @section('title', $__t('Products'))
 
+@php
+$composeProductDisplayName = function($product)
+{
+	$parts = [];
+	if (!empty($product->name))
+	{
+		$parts[] = trim($product->name);
+	}
+	if (!empty($product->additional_details))
+	{
+		$parts[] = trim($product->additional_details);
+	}
+	if (!empty($product->strength))
+	{
+		$parts[] = trim($product->strength);
+	}
+	if (!empty($product->size))
+	{
+		$parts[] = trim($product->size);
+	}
+	if (!empty($product->package_configuration))
+	{
+		$parts[] = trim($product->package_configuration);
+	}
+
+	$displayName = implode(', ', array_filter($parts, function($part)
+	{
+		return $part !== '';
+	}));
+
+	if (!empty($product->brand) && trim($product->brand) !== '')
+	{
+		$displayName .= ' - ' . trim($product->brand);
+	}
+
+	return $displayName;
+};
+@endphp
+
 @section('content')
 <div class="row">
 	<div class="col">
@@ -148,7 +187,7 @@
 						<a class="btn btn-danger btn-sm product-delete-button"
 							href="#"
 							data-product-id="{{ $product->id }}"
-							data-product-name="{{ $product->name }}"
+							data-product-name="{{ $composeProductDisplayName($product) }}"
 							data-toggle="tooltip"
 							title="{{ $__t('Delete this item') }}">
 							<i class="fa-solid fa-trash"></i>
@@ -176,7 +215,7 @@
 					</td>
 					<td class="productcard-trigger cursor-link"
 						data-product-id="{{ $product->id }}">
-						{{ $product->name }}
+						{{ $composeProductDisplayName($product) }}
 						@if(!empty($product->picture_file_name))
 						<i class="fa-solid fa-image text-muted"
 							data-toggle="tooltip"
@@ -257,7 +296,7 @@
 							required>
 							<option></option>
 							@foreach($products as $product)
-							<option value="{{ $product->id }}">{{ $product->name }}</option>
+							<option value="{{ $product->id }}">{{ $composeProductDisplayName($product) }}</option>
 							@endforeach
 						</select>
 					</div>
@@ -272,7 +311,7 @@
 							required>
 							<option></option>
 							@foreach($products as $product)
-							<option value="{{ $product->id }}">{{ $product->name }}</option>
+							<option value="{{ $product->id }}">{{ $composeProductDisplayName($product) }}</option>
 							@endforeach
 						</select>
 					</div>

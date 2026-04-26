@@ -259,7 +259,7 @@
 					</td>
 					<td class="productcard-trigger cursor-link"
 						data-product-id="{{ $stockLogEntry->product_id }}">
-						<span class="name-anchor @if($stockLogEntry->undone == 1) text-strike-through @endif">{{ $stockLogEntry->product_name }}</span>
+						<span class="name-anchor @if($stockLogEntry->undone == 1) text-strike-through @endif">{{ $stockLogEntry->product_display_name }}</span>
 						@if($stockLogEntry->undone == 1)
 						<br>
 						{{ $__t('Undone on') . ' ' . $stockLogEntry->undone_timestamp }}

@@ -132,6 +132,7 @@ $(document).on('click', '.product-consume-button', function(e)
 	Grocy.FrontendHelpers.BeginUiBusy();
 
 	var productId = $(e.currentTarget).attr('data-product-id');
+	var productName = $(e.currentTarget).attr('data-product-name');
 	var consumeAmount = Number.parseFloat($(e.currentTarget).attr('data-consume-amount'));
 	var originalTotalStockAmount = Number.parseFloat($(e.currentTarget).attr('data-original-total-stock-amount'));
 	var wasSpoiled = $(e.currentTarget).hasClass("product-consume-button-spoiled");
@@ -144,11 +145,11 @@ $(document).on('click', '.product-consume-button', function(e)
 				{
 					if (result.product.enable_tare_weight_handling == 1)
 					{
-						var toastMessage = __t('Removed %1$s of %2$s from stock', originalTotalStockAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(consumeAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), result.product.name) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + bookingResponse[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
+						var toastMessage = __t('Removed %1$s of %2$s from stock', originalTotalStockAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(consumeAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), productName) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + bookingResponse[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
 					}
 					else
 					{
-						var toastMessage = __t('Removed %1$s of %2$s from stock', consumeAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(consumeAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), result.product.name) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + bookingResponse[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
+						var toastMessage = __t('Removed %1$s of %2$s from stock', consumeAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(consumeAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), productName) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + bookingResponse[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
 					}
 
 					if (wasSpoiled)

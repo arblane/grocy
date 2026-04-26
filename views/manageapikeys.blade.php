@@ -101,6 +101,7 @@
 							data-apikey-key="{{ $apiKey->api_key }}"
 							data-apikey-type="{{ $apiKey->key_type }}"
 							data-apikey-description="{{ $apiKey->description }}"
+							data-apikey-api-url="{{ $apiKeyQrCodeApiUrl }}"
 							data-toggle="tooltip"
 							title="{{ $__t('Show a QR-Code for this API key') }}">
 							<i class="fa-solid fa-qrcode"></i>

@@ -68,7 +68,7 @@
 			<tbody class="d-none">
 				@foreach($metrics as $metric)
 				<tr>
-					<td>{{ $metric->product_name }}</td>
+					<td>{{ $metric->product_display_name }}</td>
 					<td data-order="{{ $metric->consume_event_count }}">{{ $metric->consume_event_count }}</td>
 					<td data-order="{{ $metric->confidence_score }}">
 						@if($metric->confidence_score === 0)
