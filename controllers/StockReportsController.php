@@ -29,14 +29,27 @@ class StockReportsController extends BaseController
 		SELECT
 			sl.product_id,
 			p.name AS product_name,
+			CONCAT(
+				CONCAT_WS(', ',
+					p.name,
+					NULLIF(TRIM(p.additional_details), ''),
+					NULLIF(TRIM(p.strength), ''),
+					NULLIF(TRIM(p.size), ''),
+					NULLIF(TRIM(p.package_configuration), '')
+				),
+				CASE
+					WHEN NULLIF(TRIM(p.brand), '') IS NOT NULL THEN CONCAT(' - ', TRIM(p.brand))
+					ELSE ''
+				END
+			) AS product_display_name,
 			COALESCE(sl.transaction_id, sl.id) AS consume_event_key,
 			MIN(sl.row_created_timestamp) AS consumed_at
 		FROM stock_log sl
 		JOIN products p
 			ON sl.product_id = p.id
 		WHERE $where
-		GROUP BY sl.product_id, p.name, COALESCE(sl.transaction_id, sl.id)
-		ORDER BY p.name COLLATE NOCASE, consumed_at
+		GROUP BY sl.product_id, p.name, product_display_name, COALESCE(sl.transaction_id, sl.id)
+		ORDER BY product_display_name COLLATE NOCASE, consumed_at
 		";
 
 		$consumeEvents = $this->getDatabaseService()->ExecuteDbQuery($sql)->fetchAll(\PDO::FETCH_OBJ);
@@ -50,6 +63,7 @@ class StockReportsController extends BaseController
 				$metricsByProduct[$productId] = (object) [
 					'product_id' => $productId,
 					'product_name' => $consumeEvent->product_name,
+					'product_display_name' => $consumeEvent->product_display_name,
 					'consume_event_count' => 0,
 					'average_days_between_consumptions' => null,
 					'last_consumed_at' => null,

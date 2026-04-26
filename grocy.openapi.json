@@ -4416,6 +4416,10 @@
 					"name": {
 						"type": "string"
 					},
+					"product_display_name": {
+						"type": "string",
+						"description": "Additive compatibility field for UI/API consumers that need a composed product label"
+					},
 					"description": {
 						"type": "string"
 					},
@@ -4491,6 +4495,7 @@
 				"example": {
 					"id": "1",
 					"name": "Cookies",
+					"product_display_name": "Cookies",
 					"description": null,
 					"location_id": "4",
 					"qu_id_purchase": "3",
@@ -4519,6 +4524,10 @@
 					},
 					"name": {
 						"type": "string"
+					},
+					"product_display_name": {
+						"type": "string",
+						"description": "Additive compatibility field for UI/API consumers that need a composed product label"
 					},
 					"description": {
 						"type": "string"
@@ -4591,6 +4600,7 @@
 				"example": {
 					"id": "1",
 					"name": "Cookies",
+					"product_display_name": "Cookies",
 					"description": null,
 					"location_id": "4",
 					"qu_id_purchase": "3",
@@ -4832,6 +4842,10 @@
 					"product": {
 						"$ref": "#/components/schemas/Product"
 					},
+					"product_display_name": {
+						"type": "string",
+						"description": "Additive compatibility field for UI/API consumers that need a composed product label"
+					},
 					"product_barcodes": {
 						"type": "array",
 						"items": {
@@ -4917,6 +4931,7 @@
 					"product": {
 						"id": "1",
 						"name": "Cookies",
+						"product_display_name": "Cookies",
 						"description": null,
 						"location_id": "4",
 						"qu_id_purchase": "3",
@@ -4932,6 +4947,7 @@
 						"not_check_stock_fulfillment_for_recipes": "0",
 						"last_shopping_location_id": null
 					},
+					"product_display_name": "Cookies",
 					"product_barcodes": [
 						{
 							"id": "1",
@@ -5623,6 +5639,10 @@
 						"type": "boolean",
 						"description": "Indicates wheter this product has sub-products or not / if the fields `amount_aggregated` and `amount_opened_aggregated` are filled"
 					},
+					"product_display_name": {
+						"type": "string",
+						"description": "Additive compatibility field for UI/API consumers that need a composed product label"
+					},
 					"product": {
 						"$ref": "#/components/schemas/ProductWithoutUserfields"
 					}
@@ -5710,6 +5730,10 @@
 								},
 								"name": {
 									"type": "string"
+								},
+								"product_display_name": {
+									"type": "string",
+									"description": "Additive compatibility field for UI/API consumers that need a composed product label"
 								},
 								"amount_missing": {
 									"type": "number"

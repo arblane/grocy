@@ -10,6 +10,58 @@ class GenericEntityApiController extends BaseApiController
 {
 	private static $NullableNumericDateColumns = null;
 
+	private function BuildProductDisplayName($product)
+	{
+		if ($product === null)
+		{
+			return '';
+		}
+
+		$parts = [];
+		if (!empty($product->name))
+		{
+			$parts[] = trim($product->name);
+		}
+		if (!empty($product->additional_details))
+		{
+			$parts[] = trim($product->additional_details);
+		}
+		if (!empty($product->strength))
+		{
+			$parts[] = trim($product->strength);
+		}
+		if (!empty($product->size))
+		{
+			$parts[] = trim($product->size);
+		}
+		if (!empty($product->package_configuration))
+		{
+			$parts[] = trim($product->package_configuration);
+		}
+
+		$displayName = implode(', ', array_filter($parts, function ($part)
+		{
+			return $part !== '';
+		}));
+
+		if (!empty($product->brand) && trim($product->brand) !== '')
+		{
+			$displayName .= ' - ' . trim($product->brand);
+		}
+
+		return $displayName;
+	}
+
+	private function EnrichProductsEntityWithDisplayName($entity, $object)
+	{
+		if ($entity !== 'products' || $object === null)
+		{
+			return;
+		}
+
+		$object->product_display_name = $this->BuildProductDisplayName($object);
+	}
+
 	public function AddObject(Request $request, Response $response, array $args)
 	{
 		if ($args['entity'] == 'shopping_list' || $args['entity'] == 'shopping_lists')
@@ -345,6 +397,8 @@ class GenericEntityApiController extends BaseApiController
 			return $this->GenericErrorResponse($response, 'Object not found', 404);
 		}
 
+		$this->EnrichProductsEntityWithDisplayName($args['entity'], $object);
+
 		// TODO: Handle this somehow more generically
 		$referencingId = $args['objectId'];
 		if ($args['entity'] == 'stock')
@@ -369,6 +423,14 @@ class GenericEntityApiController extends BaseApiController
 		}
 
 		$objects = $this->queryData($this->getDatabase()->{$args['entity']}(), $request->getQueryParams());
+
+		if ($args['entity'] === 'products')
+		{
+			foreach ($objects as $object)
+			{
+				$this->EnrichProductsEntityWithDisplayName($args['entity'], $object);
+			}
+		}
 
 		$userfields = $this->getUserfieldsService()->GetFields($args['entity']);
 		if (count($userfields) > 0)

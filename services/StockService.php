@@ -8,6 +8,102 @@ use GuzzleHttp\Client;
 
 class StockService extends BaseService
 {
+	private function BuildProductDisplayName($product)
+	{
+		if ($product === null)
+		{
+			return '';
+		}
+
+		$parts = [];
+		if (!empty($product->name))
+		{
+			$parts[] = trim($product->name);
+		}
+		if (!empty($product->additional_details))
+		{
+			$parts[] = trim($product->additional_details);
+		}
+		if (!empty($product->strength))
+		{
+			$parts[] = trim($product->strength);
+		}
+		if (!empty($product->size))
+		{
+			$parts[] = trim($product->size);
+		}
+		if (!empty($product->package_configuration))
+		{
+			$parts[] = trim($product->package_configuration);
+		}
+
+		$displayName = implode(', ', array_filter($parts, function ($part)
+		{
+			return $part !== '';
+		}));
+
+		if (!empty($product->brand) && trim($product->brand) !== '')
+		{
+			$displayName .= ' - ' . trim($product->brand);
+		}
+
+		return $displayName;
+	}
+
+	private function NormalizeProductIdentityPart($value)
+	{
+		if ($value === null)
+		{
+			return null;
+		}
+
+		if (!is_string($value))
+		{
+			$value = strval($value);
+		}
+
+		$value = trim($value);
+		if ($value === '')
+		{
+			return null;
+		}
+
+		return mb_strtolower($value);
+	}
+
+	private function BuildNormalizedProductIdentityFromValues($values)
+	{
+		return [
+			'name' => $this->NormalizeProductIdentityPart($values['name'] ?? null),
+			'brand' => $this->NormalizeProductIdentityPart($values['brand'] ?? null),
+			'size' => $this->NormalizeProductIdentityPart($values['size'] ?? null),
+			'package_configuration' => $this->NormalizeProductIdentityPart($values['package_configuration'] ?? null),
+			'additional_details' => $this->NormalizeProductIdentityPart($values['additional_details'] ?? null),
+			'strength' => $this->NormalizeProductIdentityPart($values['strength'] ?? null),
+		];
+	}
+
+	private function FindProductByStructuredIdentity($candidateProductValues)
+	{
+		$candidateIdentity = $this->BuildNormalizedProductIdentityFromValues($candidateProductValues);
+		if (empty($candidateIdentity['name']))
+		{
+			return null;
+		}
+
+		$candidates = $this->getDatabase()->products()->where('name = :1', $candidateProductValues['name']);
+		foreach ($candidates as $candidate)
+		{
+			$existingIdentity = $this->BuildNormalizedProductIdentityFromValues((array) $candidate);
+			if ($existingIdentity === $candidateIdentity)
+			{
+				return $candidate;
+			}
+		}
+
+		return null;
+	}
+
 	const TRANSACTION_TYPE_CONSUME = 'consume';
 	const TRANSACTION_TYPE_INVENTORY_CORRECTION = 'inventory-correction';
 	const TRANSACTION_TYPE_PRODUCT_OPENED = 'product-opened';
@@ -614,9 +710,16 @@ class StockService extends BaseService
 			// Lookup was successful
 			if ($addFoundProduct === true)
 			{
-				if ($this->getDatabase()->products()->where('name = :1', $pluginOutput['name'])->fetch() !== null)
+				$existingProductByIdentity = $this->FindProductByStructuredIdentity($pluginOutput);
+				if ($existingProductByIdentity !== null)
 				{
-					throw new \Exception('Product "' . $pluginOutput['name'] . '" already exists');
+					throw new \Exception('Product "' . $this->BuildProductDisplayName($existingProductByIdentity) . '" already exists (matching metadata)');
+				}
+
+				$existingProductByName = $this->getDatabase()->products()->where('name = :1', $pluginOutput['name'])->fetch();
+				if ($existingProductByName !== null)
+				{
+					throw new \Exception('A product with the base name "' . $pluginOutput['name'] . '" already exists. This is currently blocked by the active unique name rule during Phase 1.');
 				}
 
 				// Add product to database and include new product id in output
@@ -674,7 +777,9 @@ class StockService extends BaseService
 		foreach ($relevantProducts as $product)
 		{
 			$currentStockMapped[$product->id][0]->product_id = $product->id;
+			$product->product_display_name = $this->BuildProductDisplayName($product);
 			$currentStockMapped[$product->id][0]->product = $product;
+			$currentStockMapped[$product->id][0]->product_display_name = $product->product_display_name;
 		}
 
 		return array_column($currentStockMapped, 0);
@@ -722,7 +827,10 @@ class StockService extends BaseService
 		$relevantProducts = $this->getDatabase()->products()->where('id IN (SELECT id FROM stock_missing_products)');
 		foreach ($relevantProducts as $product)
 		{
-			FindObjectInArrayByPropertyValue($missingProductsResponse, 'id', $product->id)->product = $product;
+			$product->product_display_name = $this->BuildProductDisplayName($product);
+			$missingProductRow = FindObjectInArrayByPropertyValue($missingProductsResponse, 'id', $product->id);
+			$missingProductRow->product = $product;
+			$missingProductRow->product_display_name = $product->product_display_name;
 		}
 
 		return $missingProductsResponse;
@@ -749,6 +857,7 @@ class StockService extends BaseService
 
 		$detailsRow = $this->getDatabase()->uihelper_product_details()->where('id', $productId)->fetch();
 		$product = $this->getDatabase()->products($productId);
+		$product->product_display_name = $this->BuildProductDisplayName($product);
 		$productBarcodes = $this->getDatabase()->product_barcodes()->where('product_id', $productId)->fetchAll();
 		$quPurchase = $this->getDatabase()->quantity_units($product->qu_id_purchase);
 		$quStock = $this->getDatabase()->quantity_units($product->qu_id_stock);
@@ -764,6 +873,7 @@ class StockService extends BaseService
 
 		return [
 			'product' => $product,
+			'product_display_name' => $product->product_display_name,
 			'product_barcodes' => $productBarcodes,
 			'last_purchased' => $detailsRow->last_purchased_date,
 			'last_used' => $detailsRow->last_used_date,
@@ -1216,14 +1326,14 @@ class StockService extends BaseService
 				}
 
 				array_push($result_quantity, $amount . ' ' . $quantityname);
-				array_push($result_product, $row->product_name . $note);
+				array_push($result_product, ($row->product_display_name ?? $row->product_name) . $note);
 			}
 			else
 			{
 				if ($isValidProduct)
 				{
 					array_push($result_quantity, $amount);
-					array_push($result_product, $row->product_name . $note);
+					array_push($result_product, ($row->product_display_name ?? $row->product_name) . $note);
 				}
 				else
 				{

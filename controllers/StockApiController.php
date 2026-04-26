@@ -718,6 +718,7 @@ class StockApiController extends BaseApiController
 
 			$webhookData = array_merge([
 				'product' => $productDetails->product->name,
+				'product_display_name' => $productDetails->product_display_name,
 				'grocycode' => (string)(new Grocycode(Grocycode::PRODUCT, $productDetails->product->id)),
 				'details' => $productDetails,
 			], GROCY_LABEL_PRINTER_PARAMS);
@@ -744,6 +745,7 @@ class StockApiController extends BaseApiController
 
 			$webhookData = array_merge([
 				'product' => $productDetails->product->name,
+				'product_display_name' => $productDetails->product_display_name,
 				'grocycode' => (string)(new Grocycode(Grocycode::PRODUCT, $stockEntry->product_id, [$stockEntry->stock_id])),
 				'details' => $productDetails,
 				'stock_entry' => $stockEntry,
