@@ -23,10 +23,21 @@ class OpenApiController extends BaseApiController
 			$apiKeys = $apiKeys->where('user_id', GROCY_USER_ID);
 		}
 
+		$apiKeyQrCodeApiUrl = trim(GROCY_API_KEY_QR_CODE_API_URL);
+		if (empty($apiKeyQrCodeApiUrl))
+		{
+			$apiKeyQrCodeApiUrl = $this->AppContainer->get('UrlManager')->ConstructUrl('/api');
+		}
+		else
+		{
+			$apiKeyQrCodeApiUrl = rtrim($apiKeyQrCodeApiUrl, '/');
+		}
+
 		return $this->renderPage($response, 'manageapikeys', [
 			'apiKeys' => $apiKeys,
 			'users' => $this->getDatabase()->users(),
-			'selectedKeyId' => $selectedKeyId
+			'selectedKeyId' => $selectedKeyId,
+			'apiKeyQrCodeApiUrl' => $apiKeyQrCodeApiUrl
 		]);
 	}
 

@@ -111,7 +111,7 @@
 				<tr>
 					<td class="fit-content border-right"></td>
 					<td>
-						{{ $journalEntry->product_name }}
+						{{ $journalEntry->product_display_name }}
 					</td>
 					<td>
 						{{ $__t($journalEntry->transaction_type) }}

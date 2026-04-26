@@ -54,6 +54,8 @@ See the website for more installation guides and troubleshooting help. &rarr; [h
   - Required PHP extensions: `fileinfo`, `pdo_sqlite`, `gd`, `ctype`, `intl`, `zlib`, `mbstring`
 - Recent Firefox, Chrome or Edge
 
+> Maintainer note for this fork: `grocy-mariadb` intentionally targets PHP 8.4.0 with SQLite 3.34.0 because PHP 8.5.x is not yet available in the MariaDB container used here. Review upstream runtime/version bumps case-by-case before merging.
+
 ## How to run using Docker
 
 &rarr; https://hub.docker.com/r/linuxserver/grocy

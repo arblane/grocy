@@ -1,5 +1,47 @@
 Grocy.Components.ProductCard = {};
 
+Grocy.Components.ProductCard.GetDisplayName = function(product)
+{
+	if (!product)
+	{
+		return '';
+	}
+
+	var parts = [];
+	if (product.name)
+	{
+		parts.push(product.name.trim());
+	}
+	if (product.additional_details)
+	{
+		parts.push(product.additional_details.trim());
+	}
+	if (product.strength)
+	{
+		parts.push(product.strength.trim());
+	}
+	if (product.size)
+	{
+		parts.push(product.size.trim());
+	}
+	if (product.package_configuration)
+	{
+		parts.push(product.package_configuration.trim());
+	}
+
+	var displayName = parts.filter(function(part)
+	{
+		return part !== '';
+	}).join(', ');
+
+	if (product.brand && product.brand.trim() !== '')
+	{
+		displayName += ' - ' + product.brand.trim();
+	}
+
+	return displayName;
+};
+
 Grocy.Components.ProductCard.Refresh = function(productId)
 {
 	Grocy.Api.Get('stock/products/' + productId,
@@ -8,7 +50,7 @@ Grocy.Components.ProductCard.Refresh = function(productId)
 			var stockAmount = productDetails.stock_amount || '0';
 			var stockValue = productDetails.stock_value || '0';
 			var stockAmountOpened = productDetails.stock_amount_opened || '0';
-			$('#productcard-product-name').text(productDetails.product.name);
+			$('#productcard-product-name').text(Grocy.Components.ProductCard.GetDisplayName(productDetails.product));
 			$('#productcard-product-description').html(productDetails.product.description);
 			$('#productcard-product-stock-amount').text(stockAmount);
 			$('#productcard-product-stock-qu-name').text(__n(stockAmount, productDetails.quantity_unit_stock.name, productDetails.quantity_unit_stock.name_plural, true));

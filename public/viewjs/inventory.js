@@ -79,12 +79,13 @@ $('#save-inventory-button').on('click', function(e)
 
 					if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_LABEL_PRINTER && Number.parseFloat($("#amount").attr("data-estimated-booking-amount")) > 0)
 					{
+						var productDisplayName = productDetails.product_display_name || productDetails.product.product_display_name || productDetails.product.name;
 						if (Grocy.Webhooks.labelprinter !== undefined)
 						{
 							if (jsonForm.stock_label_type == 1) // Single label
 							{
 								var webhookData = {};
-								webhookData.product = productDetails.product.name;
+								webhookData.product = productDisplayName;
 								webhookData.grocycode = 'grcy:p:' + jsonForm.product_id + ":" + result[0].stock_id;
 								if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_BEST_BEFORE_DATE_TRACKING)
 								{
@@ -101,7 +102,7 @@ $('#save-inventory-button').on('click', function(e)
 										stockEntries.forEach(stockEntry =>
 										{
 											var webhookData = {};
-											webhookData.product = productDetails.product.name;
+											webhookData.product = productDisplayName;
 											webhookData.grocycode = 'grcy:p:' + jsonForm.product_id + ":" + stockEntry.stock_id;
 											if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_BEST_BEFORE_DATE_TRACKING)
 											{
@@ -124,7 +125,8 @@ $('#save-inventory-button').on('click', function(e)
 					Grocy.Api.Get('stock/products/' + jsonForm.product_id,
 						function(result)
 						{
-							var successMessage = __t('Stock amount of %1$s is now %2$s', result.product.name, result.stock_amount + " " + __n(result.stock_amount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true)) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + bookingResponse[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
+							var resultProductDisplayName = result.product_display_name || result.product.product_display_name || result.product.name;
+							var successMessage = __t('Stock amount of %1$s is now %2$s', resultProductDisplayName, result.stock_amount + " " + __n(result.stock_amount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true)) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + bookingResponse[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
 
 							if (GetUriParam("embedded") !== undefined)
 							{

@@ -76,6 +76,62 @@
 			</div>
 
 			<div class="form-group">
+				<label for="brand">{{ $__t('Brand') }}</label>
+				<input type="text"
+					class="form-control"
+					id="brand"
+					name="brand"
+					value="@if($mode == 'edit'){{ $product->brand }}@endif">
+			</div>
+
+			<div class="form-group">
+				<label for="size">{{ $__t('Size') }}</label>
+				<input type="text"
+					class="form-control"
+					id="size"
+					name="size"
+					value="@if($mode == 'edit'){{ $product->size }}@endif">
+			</div>
+
+			<div class="form-group">
+				<label for="package_configuration">{{ $__t('Package configuration') }}</label>
+				<input type="text"
+					class="form-control"
+					id="package_configuration"
+					name="package_configuration"
+					value="@if($mode == 'edit'){{ $product->package_configuration }}@endif">
+			</div>
+
+			<div class="form-group">
+				<label for="additional_details">{{ $__t('Additional details') }}</label>
+				<input type="text"
+					class="form-control"
+					id="additional_details"
+					name="additional_details"
+					value="@if($mode == 'edit'){{ $product->additional_details }}@endif">
+			</div>
+
+			<div class="form-group">
+				<label for="strength">{{ $__t('Strength') }}</label>
+				<input type="text"
+					class="form-control"
+					id="strength"
+					name="strength"
+					value="@if($mode == 'edit'){{ $product->strength }}@endif">
+				<small class="form-text text-muted">{{ $__t('Use for supplements/medicine (for example 200 mg)') }}</small>
+			</div>
+
+			<div class="form-group">
+				<div class="custom-control custom-checkbox">
+					<input @if($mode=='edit'
+						&&
+						$product->is_recipe_match_excluded == 1) checked @endif class="form-check-input custom-control-input" type="checkbox" id="is_recipe_match_excluded" name="is_recipe_match_excluded" value="1">
+					<label class="form-check-label custom-control-label"
+						for="is_recipe_match_excluded">{{ $__t('Exclude from recipe matching') }}</label>
+				</div>
+			</div>
+
+			<div class="form-group">
 				<div class="custom-control custom-checkbox">
 					<input @if($mode=='create'
 						)

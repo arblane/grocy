@@ -22,6 +22,44 @@
 @php if(empty($nextInputSelector)) { $nextInputSelector = ''; } @endphp
 @php if(empty($validationMessage)) { $validationMessage = 'You have to select a product'; } @endphp
 @php if(empty($additionalGroupCssClasses)) { $additionalGroupCssClasses = ''; } @endphp
+@php
+$composeProductDisplayName = function($product)
+{
+	$parts = [];
+	if (!empty($product->name))
+	{
+		$parts[] = trim($product->name);
+	}
+	if (!empty($product->additional_details))
+	{
+		$parts[] = trim($product->additional_details);
+	}
+	if (!empty($product->strength))
+	{
+		$parts[] = trim($product->strength);
+	}
+	if (!empty($product->size))
+	{
+		$parts[] = trim($product->size);
+	}
+	if (!empty($product->package_configuration))
+	{
+		$parts[] = trim($product->package_configuration);
+	}
+
+	$displayName = implode(', ', array_filter($parts, function($part)
+	{
+		return $part !== '';
+	}));
+
+	if (!empty($product->brand) && trim($product->brand) !== '')
+	{
+		$displayName .= ' - ' . trim($product->brand);
+	}
+
+	return $displayName;
+};
+@endphp
 
 <div class="form-group {{ $additionalGroupCssClasses }}"
 	data-next-input-selector="{{ $nextInputSelector }}"
@@ -67,7 +105,7 @@
 		}
 		@endphp
 		<option data-additional-searchdata="@if(isset($bc)){{ strtolower($bc->barcodes) }}@endif,"
-			value="{{ $product->id }}">{{ $product->name }}</option>
+			value="{{ $product->id }}">{{ $composeProductDisplayName($product) }}</option>
 		@endforeach
 	</select>
 	<div class="invalid-feedback">{{ $__t($validationMessage) }}</div>

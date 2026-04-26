@@ -63,6 +63,13 @@ Setting('BASE_PATH', '');
 // or for example "https://example.com/grocy" when using a subdirectory
 Setting('BASE_URL', '/');
 
+// Optional override for the API URL embedded in API key QR codes on the
+// "Manage API keys" page.
+// Leave empty to use the normal Grocy API URL derived from BASE_URL.
+// Example: "http://192.168.0.130:5001/api" to point Android companion app
+// onboarding at a dedicated compatibility proxy instead of the web UI host.
+Setting('API_KEY_QR_CODE_API_URL', '');
+
 // The plugin to use for external barcode lookups,
 // must be the filename (folder "/plugins" for built-in plugins or "/data/plugins" for user plugins) without the .php extension,
 // see /plugins/DemoBarcodeLookupPlugin.php for a commented example implementation

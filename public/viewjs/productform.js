@@ -78,6 +78,37 @@
 	});
 }
 
+function normalizeStructuredProductFields(jsonData)
+{
+	[
+		'brand',
+		'size',
+		'package_configuration',
+		'additional_details',
+		'strength'
+	].forEach((field) =>
+	{
+		if (!jsonData.hasOwnProperty(field))
+		{
+			return;
+		}
+
+		if (typeof jsonData[field] !== 'string')
+		{
+			return;
+		}
+
+		jsonData[field] = jsonData[field].trim();
+
+		if (jsonData[field].length === 0)
+		{
+			jsonData[field] = null;
+		}
+	});
+
+	jsonData.is_recipe_match_excluded = $('#is_recipe_match_excluded').prop('checked') ? 1 : 0;
+}
+
 $('.save-product-button').on('click', function(e)
 {
 	e.preventDefault();
@@ -88,6 +119,7 @@ $('.save-product-button').on('click', function(e)
 	}
 
 	var jsonData = $('#product-form').serializeJSON();
+	normalizeStructuredProductFields(jsonData);
 	var parentProductId = jsonData.product_id;
 	delete jsonData.product_id;
 	jsonData.parent_product_id = parentProductId;
@@ -397,6 +429,27 @@ if (Grocy.EditMode == "create" && GetUriParam("copy-of") != undefined)
 			{
 				Grocy.Components.ProductPicker.SetId(sourceProduct.parent_product_id);
 			}
+			if (sourceProduct.brand != null)
+			{
+				$('#brand').val(sourceProduct.brand);
+			}
+			if (sourceProduct.size != null)
+			{
+				$('#size').val(sourceProduct.size);
+			}
+			if (sourceProduct.package_configuration != null)
+			{
+				$('#package_configuration').val(sourceProduct.package_configuration);
+			}
+			if (sourceProduct.additional_details != null)
+			{
+				$('#additional_details').val(sourceProduct.additional_details);
+			}
+			if (sourceProduct.strength != null)
+			{
+				$('#strength').val(sourceProduct.strength);
+			}
+			$('#is_recipe_match_excluded').prop('checked', BoolVal(sourceProduct.is_recipe_match_excluded));
 			if (sourceProduct.description)
 			{
 				$("#description").summernote("pasteHTML", sourceProduct.description);

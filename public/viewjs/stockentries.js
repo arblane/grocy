@@ -82,7 +82,8 @@ $(document).on('click', '.stock-consume-button', function(e)
 			Grocy.Api.Get('stock/products/' + productId,
 				function(result)
 				{
-					var toastMessage = __t('Removed %1$s of %2$s from stock', consumeAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(consumeAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), result.product.name);
+					var productDisplayName = result.product_display_name || result.product.product_display_name || result.product.name;
+					var toastMessage = __t('Removed %1$s of %2$s from stock', consumeAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(consumeAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), productDisplayName);
 					if (wasSpoiled)
 					{
 						toastMessage += "<br>(" + __t("Spoiled") + ")";
@@ -129,7 +130,8 @@ $(document).on('click', '.product-open-button', function(e)
 				{
 					button.addClass("disabled");
 					Grocy.FrontendHelpers.EndUiBusy();
-					toastr.success(__t('Marked %1$s of %2$s as opened', openAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(openAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), result.product.name) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockBookingEntry(' + bookingResponse[0].id + ',' + stockRowId + ', ' + productId + ')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>');
+					var productDisplayName = result.product_display_name || result.product.product_display_name || result.product.name;
+					toastr.success(__t('Marked %1$s of %2$s as opened', openAmount.toLocaleString({ minimumFractionDigits: 0, maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts }) + " " + __n(openAmount, result.quantity_unit_stock.name, result.quantity_unit_stock.name_plural, true), productDisplayName) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockBookingEntry(' + bookingResponse[0].id + ',' + stockRowId + ', ' + productId + ')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>');
 
 					if (result.product.move_on_open == 1 && result.default_consume_location != null)
 					{

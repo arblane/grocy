@@ -1,7 +1,22 @@
--- Converted view (MariaDB-compatible)
+ALTER TABLE products ADD COLUMN brand TEXT;
+ALTER TABLE products ADD COLUMN size TEXT;
+ALTER TABLE products ADD COLUMN additional_details TEXT;
+ALTER TABLE products ADD COLUMN strength TEXT;
+ALTER TABLE products ADD COLUMN is_recipe_match_excluded TINYINT NOT NULL DEFAULT 0 CHECK(is_recipe_match_excluded IN (0, 1));
 
--- Flags: IFNULL -> COALESCE
-CREATE OR REPLACE VIEW uihelper_stock_current_overview AS
+CREATE INDEX IF NOT EXISTS ix_products_brand ON products (
+	brand
+);
+
+CREATE INDEX IF NOT EXISTS ix_products_parent_active_excluded ON products (
+	parent_product_id,
+	active,
+	is_recipe_match_excluded
+);
+
+DROP VIEW uihelper_stock_current_overview;
+CREATE VIEW uihelper_stock_current_overview
+AS
 SELECT
 	p.id,
 	sc.amount_opened AS amount_opened,
@@ -10,25 +25,11 @@ SELECT
 	sc.amount AS amount,
 	sc.value as value,
 	sc.product_id AS product_id,
-	COALESCE(sc.best_before_date, '2888-12-31') AS best_before_date,
+	IFNULL(sc.best_before_date, '2888-12-31') AS best_before_date,
 	EXISTS(SELECT id FROM stock_missing_products WHERE id = sc.product_id) AS product_missing,
 	p.name AS product_name,
-	CONCAT(
-		CONCAT_WS(', ',
-			p.name,
-			NULLIF(TRIM(p_base.additional_details), ''),
-			NULLIF(TRIM(p_base.strength), ''),
-			NULLIF(TRIM(p_base.size), ''),
-			NULLIF(TRIM(p_base.package_configuration), '')
-		),
-		CASE
-			WHEN NULLIF(TRIM(p_base.brand), '') IS NOT NULL THEN CONCAT(' - ', TRIM(p_base.brand))
-			ELSE ''
-		END
-	) AS product_display_name,
 	p_base.brand AS product_brand,
 	p_base.size AS product_size,
-	p_base.package_configuration AS product_package_configuration,
 	p_base.additional_details AS product_additional_details,
 	p_base.strength AS product_strength,
 	p_base.is_recipe_match_excluded AS product_is_recipe_match_excluded,
@@ -111,5 +112,10 @@ LEFT JOIN product_barcodes_comma_separated pbcs
 	ON sc.product_id = pbcs.product_id
 LEFT JOIN products p_parent
 	ON p.parent_product_id = p_parent.id
-WHERE p.hide_on_stock_overview = 0
-/* uihelper_stock_current_overview(id,amount_opened,tare_weight,enable_tare_weight_handling,amount,value,product_id,best_before_date,product_missing,product_name,product_display_name,product_brand,product_size,product_package_configuration,product_additional_details,product_strength,product_is_recipe_match_excluded,product_group_name,default_store_name,on_shopping_list,qu_stock_name,qu_stock_name_plural,qu_purchase_name,qu_purchase_name_plural,qu_consume_name,qu_consume_name_plural,qu_price_name,qu_price_name_plural,is_aggregated_amount,amount_opened_aggregated,amount_aggregated,product_calories,calories,calories_aggregated,quick_consume_amount,quick_consume_amount_qu_consume,quick_open_amount,quick_open_amount_qu_consume,due_type,last_purchased,last_price,average_price,min_stock_amount,product_barcodes,product_description,product_default_location_name,parent_product_id,parent_product_name,product_picture_file_name,product_no_own_stock,product_qu_factor_purchase_to_stock,product_qu_factor_price_to_stock,is_in_stock_or_below_min_stock,disable_open) */;;
+WHERE p.hide_on_stock_overview = 0;
+
+DELETE FROM user_settings
+WHERE `key` IN (
+	'datatables_state_stock-overview-tablee',
+	'datatables_rowGroup_stock-overview-table'
+);

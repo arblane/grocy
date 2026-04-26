@@ -580,6 +580,19 @@ SELECT
 	user_id AS id, -- Dummy, LessQL needs an id column
 	user_id, u.display_name AS user_display_name,
 	p.name AS product_name,
+	CONCAT(
+		CONCAT_WS(', ',
+			p.name,
+			NULLIF(TRIM(p.additional_details), ''),
+			NULLIF(TRIM(p.strength), ''),
+			NULLIF(TRIM(p.size), ''),
+			NULLIF(TRIM(p.package_configuration), '')
+		),
+		CASE
+			WHEN NULLIF(TRIM(p.brand), '') IS NOT NULL THEN CONCAT(' - ', TRIM(p.brand))
+			ELSE ''
+		END
+	) AS product_display_name,
 	product_id,
 	transaction_type,
 	qu.name AS qu_name,
@@ -594,7 +607,7 @@ JOIN quantity_units qu
 	ON p.qu_id_stock = qu.id
 WHERE undone = 0
 GROUP BY user_id, product_id, transaction_type
-/* uihelper_stock_journal_summary(id,user_id,user_display_name,product_name,product_id,transaction_type,qu_name,qu_name_plural,amount) */;
+/* uihelper_stock_journal_summary(id,user_id,user_display_name,product_name,product_display_name,product_id,transaction_type,qu_name,qu_name_plural,amount) */;
 CREATE VIEW product_barcodes_comma_separated
 AS
 SELECT
@@ -1151,6 +1164,19 @@ SELECT
 	sl.location_id,
 	l.name AS location_name,
 	p.name AS product_name,
+	CONCAT(
+		CONCAT_WS(', ',
+			p.name,
+			NULLIF(TRIM(p.additional_details), ''),
+			NULLIF(TRIM(p.strength), ''),
+			NULLIF(TRIM(p.size), ''),
+			NULLIF(TRIM(p.package_configuration), '')
+		),
+		CASE
+			WHEN NULLIF(TRIM(p.brand), '') IS NOT NULL THEN CONCAT(' - ', TRIM(p.brand))
+			ELSE ''
+		END
+	) AS product_display_name,
 	qu.name AS qu_name,
 	qu.name_plural AS qu_name_plural,
 	u.display_name AS user_display_name,
@@ -1166,7 +1192,7 @@ JOIN locations l
 	ON sl.location_id = l.id
 JOIN quantity_units qu
 	ON p.qu_id_stock = qu.id
-/* uihelper_stock_journal(id,row_created_timestamp,correlation_id,undone,undone_timestamp,transaction_type,spoiled,amount,location_id,location_name,product_name,qu_name,qu_name_plural,user_display_name,product_id,note,stock_id) */;
+/* uihelper_stock_journal(id,row_created_timestamp,correlation_id,undone,undone_timestamp,transaction_type,spoiled,amount,location_id,location_name,product_name,product_display_name,qu_name,qu_name_plural,user_display_name,product_id,note,stock_id) */;
 CREATE TRIGGER prevent_adding_no_own_stock_products_to_stock AFTER INSERT ON stock
 BEGIN
 	SELECT CASE WHEN((
@@ -2678,6 +2704,19 @@ AS
 SELECT
 	sl.*,
 	p.name AS product_name,
+	CONCAT(
+		CONCAT_WS(', ',
+			p.name,
+			NULLIF(TRIM(p.additional_details), ''),
+			NULLIF(TRIM(p.strength), ''),
+			NULLIF(TRIM(p.size), ''),
+			NULLIF(TRIM(p.package_configuration), '')
+		),
+		CASE
+			WHEN NULLIF(TRIM(p.brand), '') IS NOT NULL THEN CONCAT(' - ', TRIM(p.brand))
+			ELSE ''
+		END
+	) AS product_display_name,
 	plp.price * IFNULL(quc.factor, 1.0) AS last_price_unit,
 	plp.price * sl.amount AS last_price_total,
 	plp.price AS price,
@@ -2704,7 +2743,7 @@ LEFT JOIN cache__quantity_unit_conversions_resolved quc
 	AND sl.qu_id = quc.from_qu_id
 LEFT JOIN product_barcodes_comma_separated pbcs
 	ON sl.product_id = pbcs.product_id
-/* uihelper_shopping_list(id,product_id,note,amount,row_created_timestamp,shopping_list_id,done,qu_id,product_name,last_price_unit,last_price_total,price,default_shopping_location_name,qu_name,qu_name_plural,product_group_id,product_group_name,product_barcodes) */;
+/* uihelper_shopping_list(id,product_id,note,amount,row_created_timestamp,shopping_list_id,done,qu_id,product_name,product_display_name,last_price_unit,last_price_total,price,default_shopping_location_name,qu_name,qu_name_plural,product_group_id,product_group_name,product_barcodes) */;
 CREATE VIEW uihelper_stock_current_overview
 AS
 SELECT
@@ -2718,6 +2757,25 @@ SELECT
 	IFNULL(sc.best_before_date, '2888-12-31') AS best_before_date,
 	EXISTS(SELECT id FROM stock_missing_products WHERE id = sc.product_id) AS product_missing,
 	p.name AS product_name,
+	CONCAT(
+		CONCAT_WS(', ',
+			p.name,
+			NULLIF(TRIM(p_base.additional_details), ''),
+			NULLIF(TRIM(p_base.strength), ''),
+			NULLIF(TRIM(p_base.size), ''),
+			NULLIF(TRIM(p_base.package_configuration), '')
+		),
+		CASE
+			WHEN NULLIF(TRIM(p_base.brand), '') IS NOT NULL THEN CONCAT(' - ', TRIM(p_base.brand))
+			ELSE ''
+		END
+	) AS product_display_name,
+	p_base.brand AS product_brand,
+	p_base.size AS product_size,
+	p_base.package_configuration AS product_package_configuration,
+	p_base.additional_details AS product_additional_details,
+	p_base.strength AS product_strength,
+	p_base.is_recipe_match_excluded AS product_is_recipe_match_excluded,
 	pg.name AS product_group_name,
 	sl.name AS default_store_name,
 	EXISTS(SELECT * FROM shopping_list WHERE shopping_list.product_id = sc.product_id) AS on_shopping_list,
@@ -2773,6 +2831,8 @@ FROM (
 	) sc
 JOIN products_view p
     ON sc.product_id = p.id
+JOIN products p_base
+	ON sc.product_id = p_base.id
 JOIN locations l
 	ON p.location_id = l.id
 JOIN quantity_units qu_stock
@@ -2796,4 +2856,4 @@ LEFT JOIN product_barcodes_comma_separated pbcs
 LEFT JOIN products p_parent
 	ON p.parent_product_id = p_parent.id
 WHERE p.hide_on_stock_overview = 0
-/* uihelper_stock_current_overview(id,amount_opened,tare_weight,enable_tare_weight_handling,amount,value,product_id,best_before_date,product_missing,product_name,product_group_name,default_store_name,on_shopping_list,qu_stock_name,qu_stock_name_plural,qu_purchase_name,qu_purchase_name_plural,qu_consume_name,qu_consume_name_plural,qu_price_name,qu_price_name_plural,is_aggregated_amount,amount_opened_aggregated,amount_aggregated,product_calories,calories,calories_aggregated,quick_consume_amount,quick_consume_amount_qu_consume,quick_open_amount,quick_open_amount_qu_consume,due_type,last_purchased,last_price,average_price,min_stock_amount,product_barcodes,product_description,product_default_location_name,parent_product_id,parent_product_name,product_picture_file_name,product_no_own_stock,product_qu_factor_purchase_to_stock,product_qu_factor_price_to_stock,is_in_stock_or_below_min_stock,disable_open) */;
+/* uihelper_stock_current_overview(id,amount_opened,tare_weight,enable_tare_weight_handling,amount,value,product_id,best_before_date,product_missing,product_name,product_display_name,product_brand,product_size,product_package_configuration,product_additional_details,product_strength,product_is_recipe_match_excluded,product_group_name,default_store_name,on_shopping_list,qu_stock_name,qu_stock_name_plural,qu_purchase_name,qu_purchase_name_plural,qu_consume_name,qu_consume_name_plural,qu_price_name,qu_price_name_plural,is_aggregated_amount,amount_opened_aggregated,amount_aggregated,product_calories,calories,calories_aggregated,quick_consume_amount,quick_consume_amount_qu_consume,quick_open_amount,quick_open_amount_qu_consume,due_type,last_purchased,last_price,average_price,min_stock_amount,product_barcodes,product_description,product_default_location_name,parent_product_id,parent_product_name,product_picture_file_name,product_no_own_stock,product_qu_factor_purchase_to_stock,product_qu_factor_price_to_stock,is_in_stock_or_below_min_stock,disable_open) */;

@@ -124,7 +124,8 @@ $('#save-purchase-button').on('click', function(e)
 					{
 						amountMessage = Number.parseFloat(jsonForm.amount) - productDetails.stock_amount - productDetails.product.tare_weight;
 					}
-					var successMessage = __t('Added %1$s of %2$s to stock', amountMessage + " " + __n(amountMessage, productDetails.quantity_unit_stock.name, productDetails.quantity_unit_stock.name_plural, true), productDetails.product.name) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + result[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
+					var productDisplayName = productDetails.product_display_name || productDetails.product.product_display_name || productDetails.product.name;
+					var successMessage = __t('Added %1$s of %2$s to stock', amountMessage + " " + __n(amountMessage, productDetails.quantity_unit_stock.name, productDetails.quantity_unit_stock.name_plural, true), productDisplayName) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockTransaction(\'' + result[0].transaction_id + '\')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>';
 
 					if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_LABEL_PRINTER)
 					{
@@ -133,7 +134,7 @@ $('#save-purchase-button').on('click', function(e)
 							if (jsonForm.stock_label_type == 1) // Single label
 							{
 								var webhookData = {};
-								webhookData.product = productDetails.product.name;
+								webhookData.product = productDisplayName;
 								webhookData.grocycode = 'grcy:p:' + jsonForm.product_id + ":" + result[0].stock_id;
 								if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_BEST_BEFORE_DATE_TRACKING)
 								{
@@ -150,7 +151,7 @@ $('#save-purchase-button').on('click', function(e)
 										stockEntries.forEach(stockEntry =>
 										{
 											var webhookData = {};
-											webhookData.product = productDetails.product.name;
+											webhookData.product = productDisplayName;
 											webhookData.grocycode = 'grcy:p:' + jsonForm.product_id + ":" + stockEntry.stock_id;
 											if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_BEST_BEFORE_DATE_TRACKING)
 											{
