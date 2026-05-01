@@ -45,6 +45,8 @@
 						@if(GROCY_FEATURE_FLAG_STOCK_LOCATION_TRACKING)
 						<a class="dropdown-item"
 							href="{{ $U('/locationcontentsheet') }}">{{ $__t('Location Content Sheet') }}</a>
+						<a class="dropdown-item"
+							href="{{ $U('/scansheet') }}">{{ $__t('Scan Sheet') }}</a>
 						@endif
 						<a class="dropdown-item"
 							href="{{ $U('/stockreports/consumption') }}">{{ $__t('Consumption rates') }}</a>

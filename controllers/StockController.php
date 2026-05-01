@@ -97,6 +97,52 @@ class StockController extends BaseController
 		]);
 	}
 
+	public function ScanSheet(Request $request, Response $response, array $args)
+	{
+		$scanSheetProducts = $this->getDatabase()->products()
+			->where('active = 1')
+			->where("id IN (
+				SELECT object_id
+				FROM userfield_values_resolved
+				WHERE entity = 'products'
+					AND name = 'scan_sheet'
+					AND value = '1'
+			)")
+			->orderBy('name', 'COLLATE NOCASE')
+			->fetchAll();
+
+		$productsByLocation = [];
+		foreach ($scanSheetProducts as $product)
+		{
+			if (empty($product->location_id))
+			{
+				continue;
+			}
+
+			if (!array_key_exists($product->location_id, $productsByLocation))
+			{
+				$productsByLocation[$product->location_id] = [];
+			}
+
+			$product->product_display_name = $product->name;
+			$productsByLocation[$product->location_id][] = $product;
+		}
+
+		$locations = [];
+		if (!empty($productsByLocation))
+		{
+			$locations = $this->getDatabase()->locations()
+				->where('id', array_keys($productsByLocation))
+				->orderBy('name', 'COLLATE NOCASE');
+		}
+
+		return $this->renderPage($response, 'scansheet', [
+			'quantityunits' => $this->getDatabase()->quantity_units()->orderBy('name', 'COLLATE NOCASE'),
+			'locations' => $locations,
+			'productsByLocation' => $productsByLocation
+		]);
+	}
+
 	public function LocationEditForm(Request $request, Response $response, array $args)
 	{
 		if ($args['locationId'] == 'new')

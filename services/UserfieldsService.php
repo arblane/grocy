@@ -117,8 +117,19 @@ class UserfieldsService extends BaseService
 			}
 
 			$fieldId = $fieldRow->id;
+			$isEmptyValue = ($value === null || $value === '');
 
 			$alreadyExistingEntry = $this->getDatabase()->userfield_values()->where('field_id = :1 AND object_id = :2', $fieldId, $objectId)->fetch();
+
+			if ($isEmptyValue)
+			{
+				if ($alreadyExistingEntry)
+				{
+					$alreadyExistingEntry->delete();
+				}
+
+				continue;
+			}
 
 			if ($alreadyExistingEntry)
 			{ // Update
