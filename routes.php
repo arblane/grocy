@@ -57,6 +57,7 @@ $app->group('', function (RouteCollectorProxy $group)
 	$group->get('/location/{locationId}', '\Grocy\Controllers\StockController:LocationEditForm');
 	$group->get('/stockjournal', '\Grocy\Controllers\StockController:Journal');
 	$group->get('/locationcontentsheet', '\Grocy\Controllers\StockController:LocationContentSheet');
+	$group->get('/scansheet', '\Grocy\Controllers\StockController:ScanSheet');
 	$group->get('/quantityunitpluraltesting', '\Grocy\Controllers\StockController:QuantityUnitPluralFormTesting');
 	$group->get('/stockjournal/summary', '\Grocy\Controllers\StockController:JournalSummary');
 	$group->get('/productbarcodes/{productBarcodeId}', '\Grocy\Controllers\StockController:ProductBarcodesEditForm');
