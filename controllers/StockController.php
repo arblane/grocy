@@ -128,38 +128,95 @@ class StockController extends BaseController
 			$productsByLocation[$product->location_id][] = $product;
 		}
 
-		$locations = [];
-		$locationParentNames = [];
+		// Build grouped pages: one page per parent location (or standalone location)
+		// Each page: ['title' => string, 'sections' => [['title' => string|null, 'products' => [...]]]]
+		$pages = [];
 		if (!empty($productsByLocation))
 		{
-			$locations = $this->getDatabase()->locations()
+			// Load all locations that have products
+			$allLocations = $this->getDatabase()->locations()
 				->where('id', array_keys($productsByLocation))
 				->orderBy('name', 'COLLATE NOCASE')
 				->fetchAll();
 
-			// Collect parent location ids so we can load their names in one query
+			// Collect parent ids referenced by these locations
 			$parentIds = array_filter(array_unique(array_map(
 				fn($l) => $l->parent_location_id,
-				$locations
+				$allLocations
 			)));
 
+			// Load parent location objects (they may not have products themselves)
+			$parentLocations = [];
 			if (!empty($parentIds))
 			{
 				$parentRows = $this->getDatabase()->locations()
 					->where('id', $parentIds)
+					->orderBy('name', 'COLLATE NOCASE')
 					->fetchAll();
 				foreach ($parentRows as $parentRow)
 				{
-					$locationParentNames[$parentRow->id] = $parentRow->name;
+					$parentLocations[$parentRow->id] = $parentRow;
 				}
 			}
+
+			// Separate child locations (have a known parent) from standalone locations
+			$childrenByParent = [];
+			$standaloneLocations = [];
+			foreach ($allLocations as $loc)
+			{
+				if (!empty($loc->parent_location_id) && isset($parentLocations[$loc->parent_location_id]))
+				{
+					$childrenByParent[$loc->parent_location_id][] = $loc;
+				}
+				else
+				{
+					$standaloneLocations[] = $loc;
+				}
+			}
+
+			// One page per parent, sections per child location
+			foreach ($parentLocations as $parentId => $parentLoc)
+			{
+				if (empty($childrenByParent[$parentId]))
+				{
+					continue;
+				}
+				$children = $childrenByParent[$parentId];
+				usort($children, fn($a, $b) => strcasecmp($a->name, $b->name));
+				$showSubheadings = count($children) > 1;
+				$sections = [];
+				foreach ($children as $childLoc)
+				{
+					$sections[] = [
+						'title' => $showSubheadings ? $childLoc->name : null,
+						'products' => $productsByLocation[$childLoc->id] ?? []
+					];
+				}
+				$pages[] = [
+					'title' => $parentLoc->name,
+					'sections' => $sections
+				];
+			}
+
+			// One page per standalone location
+			foreach ($standaloneLocations as $loc)
+			{
+				$pages[] = [
+					'title' => $loc->name,
+					'sections' => [[
+						'title' => null,
+						'products' => $productsByLocation[$loc->id] ?? []
+					]]
+				];
+			}
+
+			// Sort all pages alphabetically by title
+			usort($pages, fn($a, $b) => strcasecmp($a['title'], $b['title']));
 		}
 
 		return $this->renderPage($response, 'scansheet', [
 			'quantityunits' => $this->getDatabase()->quantity_units()->orderBy('name', 'COLLATE NOCASE'),
-			'locations' => $locations,
-			'locationParentNames' => $locationParentNames,
-			'productsByLocation' => $productsByLocation
+			'pages' => $pages
 		]);
 	}
 
