@@ -202,6 +202,7 @@ Grocy.Components.CameraBarcodeScanner.Init = function()
 	Grocy.Components.CameraBarcodeScanner.Scanner = new ZXing.BrowserMultiFormatReader(new Map().set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
 		ZXing.BarcodeFormat.EAN_8,
 		ZXing.BarcodeFormat.EAN_13,
+		ZXing.BarcodeFormat.UPC_A,
 		ZXing.BarcodeFormat.CODE_39,
 		ZXing.BarcodeFormat.CODE_128,
 		ZXing.BarcodeFormat.DATA_MATRIX,
