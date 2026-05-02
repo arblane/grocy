@@ -203,6 +203,11 @@ class StockController extends BaseController
 		]);
 	}
 
+	public function ReceiptBackfillReview(Request $request, Response $response, array $args)
+	{
+		return $this->renderPage($response, 'receiptbackfillreview');
+	}
+
 	public function ProductBarcodesEditForm(Request $request, Response $response, array $args)
 	{
 		$product = null;
