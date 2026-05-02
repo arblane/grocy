@@ -114,13 +114,19 @@
 @if(empty($locationProducts))
 @continue
 @endif
+@php
+	$parentName = (!empty($location->parent_location_id) && isset($locationParentNames[$location->parent_location_id]))
+		? $locationParentNames[$location->parent_location_id]
+		: null;
+	$pageTitle = $parentName ? ($parentName . ' › ' . $location->name) : $location->name;
+@endphp
 <div class="page">
 	<h1 class="pt-4 text-center">
 		<img src="{{ $U('/img/logo.svg?v=', true) }}{{ $version }}"
 			width="114"
 			height="30"
 			class="d-none d-print-flex mx-auto">
-		{{ $location->name }}
+		{{ $pageTitle }}
 		<a class="btn btn-outline-dark btn-sm responsive-button print-single-location-button d-print-none"
 			href="#">
 			{{ $__t('Print') . ' (' . $__t('this location') . ')' }}

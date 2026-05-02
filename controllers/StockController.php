@@ -129,16 +129,36 @@ class StockController extends BaseController
 		}
 
 		$locations = [];
+		$locationParentNames = [];
 		if (!empty($productsByLocation))
 		{
 			$locations = $this->getDatabase()->locations()
 				->where('id', array_keys($productsByLocation))
-				->orderBy('name', 'COLLATE NOCASE');
+				->orderBy('name', 'COLLATE NOCASE')
+				->fetchAll();
+
+			// Collect parent location ids so we can load their names in one query
+			$parentIds = array_filter(array_unique(array_map(
+				fn($l) => $l->parent_location_id,
+				$locations
+			)));
+
+			if (!empty($parentIds))
+			{
+				$parentRows = $this->getDatabase()->locations()
+					->where('id', $parentIds)
+					->fetchAll();
+				foreach ($parentRows as $parentRow)
+				{
+					$locationParentNames[$parentRow->id] = $parentRow->name;
+				}
+			}
 		}
 
 		return $this->renderPage($response, 'scansheet', [
 			'quantityunits' => $this->getDatabase()->quantity_units()->orderBy('name', 'COLLATE NOCASE'),
 			'locations' => $locations,
+			'locationParentNames' => $locationParentNames,
 			'productsByLocation' => $productsByLocation
 		]);
 	}
@@ -147,16 +167,33 @@ class StockController extends BaseController
 	{
 		if ($args['locationId'] == 'new')
 		{
+			$parentLocations = $this->getDatabase()->locations()
+				->where('active = 1')
+				->where('parent_location_id IS NULL')
+				->orderBy('name', 'COLLATE NOCASE')
+				->fetchAll();
+
 			return $this->renderPage($response, 'locationform', [
 				'mode' => 'create',
+				'parentLocations' => $parentLocations,
 				'userfields' => $this->getUserfieldsService()->GetFields('locations')
 			]);
 		}
 		else
 		{
+			$currentLocation = $this->getDatabase()->locations($args['locationId']);
+
+			$parentLocations = $this->getDatabase()->locations()
+				->where('active = 1')
+				->where('parent_location_id IS NULL')
+				->where('id != ' . intval($args['locationId']))
+				->orderBy('name', 'COLLATE NOCASE')
+				->fetchAll();
+
 			return $this->renderPage($response, 'locationform', [
-				'location' => $this->getDatabase()->locations($args['locationId']),
+				'location' => $currentLocation,
 				'mode' => 'edit',
+				'parentLocations' => $parentLocations,
 				'userfields' => $this->getUserfieldsService()->GetFields('locations')
 			]);
 		}
