@@ -286,9 +286,46 @@ class StockController extends BaseController
 			$where = '1=1';
 		}
 
+		// Build location filter dropdown with parent grouping
+		$allLocationsForDropdown = $this->getDatabase()->locations()->where('active = 1')->orderBy('name', 'COLLATE NOCASE')->fetchAll();
+		$activeLocationIds = array_fill_keys(array_map(fn($l) => $l->id, $allLocationsForDropdown), true);
+		$childrenByParentId = [];
+		$childIds = [];
+		foreach ($allLocationsForDropdown as $loc)
+		{
+			if (!empty($loc->parent_location_id) && isset($activeLocationIds[$loc->parent_location_id]))
+			{
+				$childrenByParentId[$loc->parent_location_id][] = $loc;
+				$childIds[$loc->id] = true;
+			}
+		}
+
+		$locationDropdown = [];
+		foreach ($allLocationsForDropdown as $loc)
+		{
+			if (isset($childrenByParentId[$loc->id]))
+			{
+				// Parent location: add parent entry then its children
+				$children = $childrenByParentId[$loc->id];
+				usort($children, fn($a, $b) => strcasecmp($a->name, $b->name));
+				$childNamePattern = implode('|', array_map(fn($c) => preg_quote($c->name), $children));
+				$locationDropdown[] = ['type' => 'parent', 'location' => $loc, 'childNamePattern' => $childNamePattern];
+				foreach ($children as $child)
+				{
+					$locationDropdown[] = ['type' => 'child', 'location' => $child];
+				}
+			}
+			elseif (!isset($childIds[$loc->id]))
+			{
+				// Standalone location (no parent, no children)
+				$locationDropdown[] = ['type' => 'standalone', 'location' => $loc];
+			}
+		}
+
 		return $this->renderPage($response, 'stockoverview', [
 			'currentStock' => $this->getDatabase()->uihelper_stock_current_overview()->where($where),
 			'locations' => $this->getDatabase()->locations()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),
+			'locationDropdown' => $locationDropdown,
 			'currentStockLocations' => $this->getStockService()->GetCurrentStockLocations(),
 			'nextXDays' => $nextXDays,
 			'productGroups' => $this->getDatabase()->product_groups()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),

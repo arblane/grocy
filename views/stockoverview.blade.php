@@ -113,8 +113,14 @@
 			<select class="custom-control custom-select"
 				id="location-filter">
 				<option value="all">{{ $__t('All') }}</option>
-				@foreach($locations as $location)
-				<option value="{{ $location->name }}">{{ $location->name }}</option>
+				@foreach($locationDropdown as $entry)
+				@if($entry['type'] === 'parent')
+				<option value="{{ $entry['location']->name }}" data-child-name-pattern="{{ $entry['childNamePattern'] }}">{{ $entry['location']->name }}</option>
+				@elseif($entry['type'] === 'child')
+				<option value="{{ $entry['location']->name }}">&nbsp;&nbsp;&nbsp;{{ $entry['location']->name }}</option>
+				@else
+				<option value="{{ $entry['location']->name }}">{{ $entry['location']->name }}</option>
+				@endif
 				@endforeach
 			</select>
 		</div>

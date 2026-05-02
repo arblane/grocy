@@ -40,16 +40,23 @@ stockOverviewTable.columns.adjust().draw();
 $("#location-filter").on("change", function()
 {
 	var value = $(this).val();
+	var column = stockOverviewTable.column(stockOverviewTable.colReorder.transpose(6));
 	if (value === "all")
 	{
-		value = "";
+		column.search("", false, true).draw();
+		return;
+	}
+
+	var childPattern = $(this).find("option:selected").data("child-name-pattern");
+	if (childPattern)
+	{
+		// Parent selected: match any child location name via regex
+		column.search("xx(" + childPattern + ")xx", true, false).draw();
 	}
 	else
 	{
-		value = "xx" + value + "xx";
+		column.search("xx" + value + "xx", false, true).draw();
 	}
-
-	stockOverviewTable.column(stockOverviewTable.colReorder.transpose(6)).search(value).draw();
 });
 
 $("#product-group-filter").on("change", function()
@@ -94,7 +101,7 @@ $("#clear-filter-button").on("click", function()
 	$("#status-filter").val("all");
 	$("#product-group-filter").val("all");
 	$("#location-filter").val("all");
-	stockOverviewTable.column(stockOverviewTable.colReorder.transpose(6)).search("").draw();
+	stockOverviewTable.column(stockOverviewTable.colReorder.transpose(6)).search("", false, true).draw();
 	stockOverviewTable.column(stockOverviewTable.colReorder.transpose(7)).search("").draw();
 	stockOverviewTable.column(stockOverviewTable.colReorder.transpose(8)).search("").draw();
 	stockOverviewTable.search("").draw();
