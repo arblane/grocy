@@ -1954,7 +1954,7 @@ class StockApiController extends BaseApiController
 					$transactionId = $this->getStockService()->AddProduct(
 						$productId,
 						$amount,
-						null,
+						'2999-12-31',
 						StockService::TRANSACTION_TYPE_PURCHASE,
 						$purchasedDate,
 						$price,
