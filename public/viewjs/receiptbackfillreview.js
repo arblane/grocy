@@ -381,6 +381,25 @@ function SetActionButtonsEnabled(enabled)
 	$('#download-staging-json-button, #copy-staging-json-button, #review-on-server-button, #apply-on-server-button, #generate-purchases-on-server-button').prop('disabled', !enabled);
 }
 
+function FindEditableRowByLineNumber(lineNumberRaw)
+{
+	if (lineNumberRaw == null)
+	{
+		return null;
+	}
+
+	var normalizedLineNumber = String(lineNumberRaw).trim();
+	if (normalizedLineNumber === '')
+	{
+		return null;
+	}
+
+	return GetEditableRows().find(function(candidate)
+	{
+		return String(candidate.line_number).trim() === normalizedLineNumber;
+	}) || null;
+}
+
 function UpdateActionbarPosition()
 {
 	var actionbar = $('#receipt-review-actionbar');
@@ -1054,11 +1073,8 @@ $('#receipt-review-search').on('keyup', Delay(function()
 
 $(document).on('change', '.manual-product-override-select', function(e)
 {
-	var lineNumber = parseInt($(e.currentTarget).closest('tr').attr('data-line-number'), 10);
-	var row = GetEditableRows().find(function(candidate)
-	{
-		return candidate.line_number === lineNumber;
-	});
+	var lineNumber = $(e.currentTarget).closest('tr').attr('data-line-number');
+	var row = FindEditableRowByLineNumber(lineNumber);
 	if (!row)
 	{
 		return;
@@ -1073,11 +1089,8 @@ $(document).on('change', '.manual-product-override-select', function(e)
 
 $(document).on('change', '.manual-stock-entry-override-select', function(e)
 {
-	var lineNumber = parseInt($(e.currentTarget).closest('tr').attr('data-line-number'), 10);
-	var row = GetEditableRows().find(function(candidate)
-	{
-		return candidate.line_number === lineNumber;
-	});
+	var lineNumber = $(e.currentTarget).closest('tr').attr('data-line-number');
+	var row = FindEditableRowByLineNumber(lineNumber);
 	if (!row)
 	{
 		return;
@@ -1091,11 +1104,8 @@ $(document).on('change', '.manual-stock-entry-override-select', function(e)
 
 $(document).on('change', '.apply-selected-input', function(e)
 {
-	var lineNumber = parseInt($(e.currentTarget).closest('tr').attr('data-line-number'), 10);
-	var row = GetEditableRows().find(function(candidate)
-	{
-		return candidate.line_number === lineNumber;
-	});
+	var lineNumber = $(e.currentTarget).closest('tr').attr('data-line-number');
+	var row = FindEditableRowByLineNumber(lineNumber);
 	if (!row)
 	{
 		return;
@@ -1214,7 +1224,9 @@ $('#generate-purchases-on-server-button').on('click', function()
 
 					if (apiResult.errors && apiResult.errors.length > 0)
 					{
-						toastr.warning(__t('%s purchase entrie(s) created, %s error(s)', apiResult.created_count || 0, apiResult.errors.length));
+						var firstError = apiResult.errors[0] && apiResult.errors[0].error ? apiResult.errors[0].error : '';
+						var errorDetail = firstError ? ' — ' + firstError : '';
+						toastr.warning(__t('%s purchase entrie(s) created, %s error(s)', apiResult.created_count || 0, apiResult.errors.length) + errorDetail, '', { timeOut: 8000 });
 					}
 					else
 					{

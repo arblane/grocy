@@ -267,9 +267,32 @@ class StockApiController extends BaseApiController
 
 	private function computeReceiptBackfillProposedPrice(array $row, ?array $selectedStockEntry): ?string
 	{
+		$parsedQuantity = $row['parsed_quantity'] ?? null;
+		$numericParsedQuantity = null;
+		if ($parsedQuantity !== null && $parsedQuantity !== '' && is_numeric($parsedQuantity))
+		{
+			$numericParsedQuantity = floatval($parsedQuantity);
+			if ($numericParsedQuantity <= 0)
+			{
+				$numericParsedQuantity = null;
+			}
+		}
+
+		$parsedUnitPrice = $row['parsed_unit_price'] ?? null;
+		if ($parsedUnitPrice !== null && $parsedUnitPrice !== '' && is_numeric($parsedUnitPrice))
+		{
+			return $this->formatReceiptBackfillPrice(floatval($parsedUnitPrice));
+		}
+
 		$parsedTotalPrice = $row['parsed_total_price'] ?? null;
 		if ($parsedTotalPrice !== null && $parsedTotalPrice !== '' && is_numeric($parsedTotalPrice))
 		{
+			$numericTotal = floatval($parsedTotalPrice);
+			if ($numericParsedQuantity !== null)
+			{
+				return $this->formatReceiptBackfillPrice($numericTotal / $numericParsedQuantity);
+			}
+
 			if ($selectedStockEntry !== null)
 			{
 				$entryAmount = $selectedStockEntry['amount'] ?? null;
@@ -278,16 +301,13 @@ class StockApiController extends BaseApiController
 					$numericAmount = floatval($entryAmount);
 					if ($numericAmount > 0)
 					{
-						return $this->formatReceiptBackfillPrice(floatval($parsedTotalPrice) / $numericAmount);
+						return $this->formatReceiptBackfillPrice($numericTotal / $numericAmount);
 					}
 				}
 			}
-		}
 
-		$parsedUnitPrice = $row['parsed_unit_price'] ?? null;
-		if ($parsedUnitPrice !== null && $parsedUnitPrice !== '' && is_numeric($parsedUnitPrice))
-		{
-			return $this->formatReceiptBackfillPrice(floatval($parsedUnitPrice));
+			// Last-resort fallback: assume parsed total already represents unit price.
+			return $this->formatReceiptBackfillPrice($numericTotal);
 		}
 
 		return null;
@@ -1889,13 +1909,13 @@ class StockApiController extends BaseApiController
 					: (IsIsoDate(strval($reviewResult['staging']['receipt_date'] ?? '')) ? strval($reviewResult['staging']['receipt_date']) : date('Y-m-d'));
 				$price = $row['proposed_price'] ?? null;
 
-				$amount = null;
-				if (array_key_exists('parsed_quantity', $row) && is_numeric($row['parsed_quantity']))
+				$amount = 1.0;
+				if (array_key_exists('parsed_quantity', $row) && is_numeric($row['parsed_quantity']) && floatval($row['parsed_quantity']) > 0)
 				{
 					$amount = floatval($row['parsed_quantity']);
 				}
 
-				if ($productId === null || $locationId === null || $amount === null || $amount <= 0)
+				if ($productId === null || $locationId === null)
 				{
 					$errors[] = [
 						'line_number' => $lineNumber,
