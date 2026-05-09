@@ -381,6 +381,47 @@ function SetActionButtonsEnabled(enabled)
 	$('#download-staging-json-button, #copy-staging-json-button, #review-on-server-button, #apply-on-server-button, #generate-purchases-on-server-button').prop('disabled', !enabled);
 }
 
+function UpdateActionbarPosition()
+{
+	var actionbar = $('#receipt-review-actionbar');
+	var placeholder = $('#receipt-review-actionbar-placeholder');
+
+	if (actionbar.length === 0 || placeholder.length === 0)
+	{
+		return;
+	}
+
+	var placeholderOffset = placeholder.offset();
+	if (!placeholderOffset)
+	{
+		return;
+	}
+
+	var topOffset = $('body').hasClass('embedded') ? 0 : 54;
+	var shouldFix = ($(window).scrollTop() + topOffset) >= placeholderOffset.top;
+
+	if (shouldFix)
+	{
+		placeholder.height(actionbar.outerHeight(true));
+		actionbar
+			.addClass('receipt-review-actionbar-fixed')
+			.css({
+				left: placeholderOffset.left + 'px',
+				width: placeholder.outerWidth() + 'px'
+			});
+	}
+	else
+	{
+		placeholder.height(0);
+		actionbar
+			.removeClass('receipt-review-actionbar-fixed')
+			.css({
+				left: '',
+				width: ''
+			});
+	}
+}
+
 function UpdateSummary()
 {
 	var rows = GetEditableRows();
@@ -438,6 +479,7 @@ function RenderRows()
 	if (filteredRows.length === 0)
 	{
 		$('#receipt-review-table-body').html('<tr><td colspan="9" class="text-muted">' + EscapeHtml(__t('No rows match the current filter.')) + '</td></tr>');
+		UpdateActionbarPosition();
 		return;
 	}
 
@@ -558,6 +600,7 @@ function RenderRows()
 	}).join('');
 
 	$('#receipt-review-table-body').html(html);
+	UpdateActionbarPosition();
 }
 
 function ResetReceiptPdfInput()
@@ -1217,4 +1260,15 @@ $('#copy-staging-json-button').on('click', function()
 	}
 });
 
+$(window).on('scroll resize', function()
+{
+	UpdateActionbarPosition();
+});
+
+$('#receipt-review-loader-panel').on('shown.bs.collapse hidden.bs.collapse', function()
+{
+	UpdateActionbarPosition();
+});
+
 UpdateSummary();
+UpdateActionbarPosition();
