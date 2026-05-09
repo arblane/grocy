@@ -12,11 +12,13 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 class StockApiController extends BaseApiController
 {
 	private const RECEIPT_STATUS_READY = 'READY';
+	private const RECEIPT_STATUS_READY_CREATE_PURCHASE = 'READY_CREATE_PURCHASE';
 	private const RECEIPT_STATUS_AMBIGUOUS_PRODUCT = 'AMBIGUOUS_PRODUCT';
 	private const RECEIPT_STATUS_AMBIGUOUS_STOCK_ENTRY = 'AMBIGUOUS_STOCK_ENTRY';
 	private const RECEIPT_STATUS_STORE_UNMATCHED = 'STORE_UNMATCHED';
 	private const RECEIPT_STATUS_NO_PRICE = 'NO_PRICE';
 	private const RECEIPT_STATUS_NO_STOCK_ENTRY = 'NO_STOCK_ENTRY';
+	private const RECEIPT_STATUS_MISSING_LOCATION = 'MISSING_LOCATION';
 
 	private function normalizeOptionalInt($value): ?int
 	{
@@ -147,6 +149,7 @@ class StockApiController extends BaseApiController
 			$result[intval($product->id)] = [
 				'id' => intval($product->id),
 				'name' => strval($product->name),
+				'location_id' => $product->location_id === null ? null : intval($product->location_id),
 				'additional_details' => $additionalDetails,
 				'strength' => $strength,
 				'size' => $size,
@@ -155,6 +158,27 @@ class StockApiController extends BaseApiController
 				'display_name' => $displayName,
 				'is_parent_product' => array_key_exists(intval($product->id), $parentProductIdSet),
 			];
+		}
+
+		return $result;
+	}
+
+	private function loadActiveLocationNamesByIds(array $locationIds): array
+	{
+		$locationIds = array_values(array_unique(array_map('intval', array_filter($locationIds, function ($locationId)
+		{
+			return $locationId !== null && is_numeric($locationId) && intval($locationId) > 0;
+		}))));
+
+		if (count($locationIds) === 0)
+		{
+			return [];
+		}
+
+		$result = [];
+		foreach ($this->getDatabase()->locations()->where('id', $locationIds)->where('active = 1')->fetchAll() as $location)
+		{
+			$result[intval($location->id)] = strval($location->name);
 		}
 
 		return $result;
@@ -1236,6 +1260,10 @@ class StockApiController extends BaseApiController
 		}
 
 		$productsMap = $this->loadProductsMapByIds($productIdSet, $parentProductIdSet);
+		$locationNamesById = $this->loadActiveLocationNamesByIds(array_map(function ($product)
+		{
+			return $product['location_id'] ?? null;
+		}, array_values($productsMap)));
 		$productWindowStatsCache = [];
 
 		$reviewedRows = [];
@@ -1414,10 +1442,18 @@ class StockApiController extends BaseApiController
 			$currentStockEntryPrice = null;
 			$currentStockEntryAmount = null;
 			$currentStockEntryStoreId = null;
+			$proposedLocationId = null;
+			$proposedLocationName = null;
 			$stockEntryOverrideApplied = false;
 
 			if ($status === self::RECEIPT_STATUS_READY && $selectedProductId !== null)
 			{
+				$proposedLocationId = $this->normalizeOptionalInt($productsMap[$selectedProductId]['location_id'] ?? null);
+				if ($proposedLocationId !== null && array_key_exists($proposedLocationId, $locationNamesById))
+				{
+					$proposedLocationName = $locationNamesById[$proposedLocationId];
+				}
+
 				$candidateStockEntries = $this->loadStockEntriesForProduct($selectedProductId, $receiptDate, $daysWindow);
 				$candidateStockEntryIds = array_values(array_map(function ($entry)
 				{
@@ -1480,8 +1516,23 @@ class StockApiController extends BaseApiController
 				}
 				elseif (count($candidateStockEntries) === 0)
 				{
-					$status = self::RECEIPT_STATUS_NO_STOCK_ENTRY;
-					$statusReason = 'no stock entries in date window';
+					$row['proposed_store_id'] = $this->normalizeOptionalInt($row['proposed_store_id'] ?? $row['matched_store_id'] ?? $staging['matched_store_id'] ?? null);
+
+					if ($proposedLocationId === null || !array_key_exists($proposedLocationId, $locationNamesById))
+					{
+						$status = self::RECEIPT_STATUS_MISSING_LOCATION;
+						$statusReason = 'selected product has no active default location';
+					}
+					elseif (($row['proposed_price'] ?? null) === null || ($row['proposed_price'] ?? '') === '')
+					{
+						$status = self::RECEIPT_STATUS_NO_PRICE;
+						$statusReason = 'no price extracted from receipt';
+					}
+					else
+					{
+						$status = self::RECEIPT_STATUS_READY_CREATE_PURCHASE;
+						$statusReason = '';
+					}
 				}
 				elseif (count($candidateStockEntries) === 1)
 				{
@@ -1544,6 +1595,8 @@ class StockApiController extends BaseApiController
 			$row['current_stock_entry_amount'] = $currentStockEntryAmount;
 			$row['current_stock_entry_price'] = $currentStockEntryPrice;
 			$row['current_stock_entry_store_id'] = $currentStockEntryStoreId;
+			$row['proposed_location_id'] = $proposedLocationId;
+			$row['proposed_location_name'] = $proposedLocationName;
 			$row['product_override_applied'] = $productOverrideApplied;
 			$row['stock_entry_override_applied'] = $stockEntryOverrideApplied;
 			$row['status'] = $status;
@@ -1552,7 +1605,10 @@ class StockApiController extends BaseApiController
 			{
 				$row['confidence_score'] = 0.0;
 			}
-			$row['apply_selected'] = ($status === self::RECEIPT_STATUS_READY) ? boolval($row['apply_selected'] ?? false) : false;
+			$row['apply_selected'] = (
+				$status === self::RECEIPT_STATUS_READY
+				|| $status === self::RECEIPT_STATUS_READY_CREATE_PURCHASE
+			) ? boolval($row['apply_selected'] ?? false) : false;
 
 			$reviewedRows[] = $row;
 		}
@@ -1776,6 +1832,160 @@ class StockApiController extends BaseApiController
 				'staging' => $reviewResult['staging'],
 				'summary' => $reviewResult['summary'],
 				'updated_count' => $updatedCount,
+				'errors' => $errors,
+				'snapshot' => $snapshot,
+			]);
+		}
+		catch (\Exception $ex)
+		{
+			return $this->GenericErrorResponse($response, $ex->getMessage());
+		}
+	}
+
+	public function ReceiptBackfillGeneratePurchases(Request $request, Response $response, array $args)
+	{
+		User::checkPermission($request, User::PERMISSION_STOCK_PURCHASE);
+
+		try
+		{
+			$requestBody = $request->getParsedBody();
+			if (!is_array($requestBody))
+			{
+				throw new \Exception('Invalid request body');
+			}
+			if (!array_key_exists('staging', $requestBody) || !is_array($requestBody['staging']))
+			{
+				throw new \Exception('staging payload is required');
+			}
+
+			$daysWindow = null;
+			if (array_key_exists('days_window', $requestBody) && is_numeric($requestBody['days_window']))
+			{
+				$daysWindow = intval($requestBody['days_window']);
+			}
+
+			$reviewResult = $this->reviewStaging($requestBody['staging'], $daysWindow);
+			$rows = $reviewResult['staging']['rows'];
+			$defaultStoreId = $this->normalizeOptionalInt($reviewResult['staging']['matched_store_id'] ?? null);
+
+			$createdCount = 0;
+			$errors = [];
+			$snapshot = [];
+			$touchedProductIds = [];
+
+			foreach ($rows as &$row)
+			{
+				if (($row['status'] ?? '') !== self::RECEIPT_STATUS_READY_CREATE_PURCHASE || !boolval($row['apply_selected'] ?? false))
+				{
+					continue;
+				}
+
+				$lineNumber = $row['line_number'] ?? null;
+				$productId = $this->normalizeOptionalInt($row['selected_product_id'] ?? null);
+				$locationId = $this->normalizeOptionalInt($row['proposed_location_id'] ?? null);
+				$shoppingLocationId = $this->normalizeOptionalInt($row['proposed_store_id'] ?? $row['matched_store_id'] ?? $defaultStoreId);
+				$purchasedDate = IsIsoDate(strval($row['parsed_receipt_date'] ?? ''))
+					? strval($row['parsed_receipt_date'])
+					: (IsIsoDate(strval($reviewResult['staging']['receipt_date'] ?? '')) ? strval($reviewResult['staging']['receipt_date']) : date('Y-m-d'));
+				$price = $row['proposed_price'] ?? null;
+
+				$amount = null;
+				if (array_key_exists('parsed_quantity', $row) && is_numeric($row['parsed_quantity']))
+				{
+					$amount = floatval($row['parsed_quantity']);
+				}
+
+				if ($productId === null || $locationId === null || $amount === null || $amount <= 0)
+				{
+					$errors[] = [
+						'line_number' => $lineNumber,
+						'error' => 'missing required product/location/amount fields for purchase creation',
+					];
+					continue;
+				}
+
+				if (!is_numeric($price ?? null))
+				{
+					$errors[] = [
+						'line_number' => $lineNumber,
+						'error' => 'missing or invalid proposed_price for purchase creation',
+					];
+					continue;
+				}
+
+				$activeLocation = $this->getDatabase()->locations()->where('id = ?', $locationId)->where('active = 1')->fetch();
+				if ($activeLocation === null)
+				{
+					$errors[] = [
+						'line_number' => $lineNumber,
+						'error' => 'proposed location is not active or does not exist',
+					];
+					continue;
+				}
+
+				try
+				{
+					$note = 'Receipt-generated purchase entry';
+					if (array_key_exists('line_number', $row) && is_numeric($row['line_number']))
+					{
+						$note .= ' (line ' . intval($row['line_number']) . ')';
+					}
+
+					$transactionId = $this->getStockService()->AddProduct(
+						$productId,
+						$amount,
+						null,
+						StockService::TRANSACTION_TYPE_PURCHASE,
+						$purchasedDate,
+						$price,
+						$locationId,
+						$shoppingLocationId,
+						$unusedTransactionId,
+						0,
+						false,
+						$note
+					);
+
+					$createdLogRow = $this->getDatabase()->stock_log()
+						->where('transaction_id = ?', intval($transactionId))
+						->where('transaction_type = ?', StockService::TRANSACTION_TYPE_PURCHASE)
+						->orderBy('id', 'DESC')
+						->fetch();
+
+					$snapshot[] = [
+						'line_number' => $lineNumber,
+						'transaction_id' => intval($transactionId),
+						'stock_id' => $createdLogRow === null ? null : strval($createdLogRow->stock_id),
+						'stock_log_row_id' => $createdLogRow === null ? null : intval($createdLogRow->id),
+						'product_id' => $productId,
+						'amount' => strval($amount),
+						'purchased_date' => $purchasedDate,
+						'price' => strval($price),
+						'location_id' => $locationId,
+						'shopping_location_id' => $shoppingLocationId,
+					];
+
+					$touchedProductIds[] = $productId;
+					$row['apply_selected'] = false;
+					$row['generated_purchase_transaction_id'] = intval($transactionId);
+					$createdCount++;
+				}
+				catch (\Exception $rowEx)
+				{
+					$errors[] = [
+						'line_number' => $lineNumber,
+						'error' => $rowEx->getMessage(),
+					];
+				}
+			}
+
+			$this->refreshReceiptBackfillProductCaches($touchedProductIds);
+			$reviewResult['staging']['rows'] = $rows;
+
+			return $this->ApiResponse($response, [
+				'staging' => $reviewResult['staging'],
+				'summary' => $reviewResult['summary'],
+				'created_count' => $createdCount,
 				'errors' => $errors,
 				'snapshot' => $snapshot,
 			]);

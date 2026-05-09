@@ -203,6 +203,7 @@ $app->group('/api', function (RouteCollectorProxy $group)
 	$group->post('/stock/receipt-backfill/preview-text', '\Grocy\Controllers\StockApiController:ReceiptBackfillPreviewFromText');
 	$group->post('/stock/receipt-backfill/review', '\Grocy\Controllers\StockApiController:ReceiptBackfillReview');
 	$group->post('/stock/receipt-backfill/apply', '\Grocy\Controllers\StockApiController:ReceiptBackfillApply');
+	$group->post('/stock/receipt-backfill/generate-purchases', '\Grocy\Controllers\StockApiController:ReceiptBackfillGeneratePurchases');
 
 	// Shopping list
 	$group->post('/stock/shoppinglist/add-missing-products', '\Grocy\Controllers\StockApiController:AddMissingProductsToShoppingList');

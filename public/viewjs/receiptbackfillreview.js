@@ -6,6 +6,7 @@ var receiptReviewState = {
 
 var receiptPdfAutoClearTimer = null;
 var receiptJsonAutoClearTimer = null;
+var receiptReviewAutoReviewTimer = null;
 
 function EscapeHtml(value)
 {
@@ -17,8 +18,11 @@ function StatusBadgeClass(status)
 	switch (status)
 	{
 		case 'READY':
+		case 'READY_CREATE_PURCHASE':
 			return 'badge-success';
 		case 'NO_STOCK_ENTRY':
+		case 'MISSING_LOCATION':
+		case 'NO_PRICE':
 			return 'badge-warning';
 		case 'AMBIGUOUS_PRODUCT':
 		case 'AMBIGUOUS_STOCK_ENTRY':
@@ -26,6 +30,11 @@ function StatusBadgeClass(status)
 		default:
 			return 'badge-secondary';
 	}
+}
+
+function IsRowApplySelectable(status)
+{
+	return status === 'READY' || status === 'READY_CREATE_PURCHASE';
 }
 
 function GetEditableRows()
@@ -369,7 +378,7 @@ function GetStatusCounts(rows)
 
 function SetActionButtonsEnabled(enabled)
 {
-	$('#download-staging-json-button, #copy-staging-json-button, #review-on-server-button, #apply-on-server-button').prop('disabled', !enabled);
+	$('#download-staging-json-button, #copy-staging-json-button, #review-on-server-button, #apply-on-server-button, #generate-purchases-on-server-button').prop('disabled', !enabled);
 }
 
 function UpdateSummary()
@@ -434,7 +443,7 @@ function RenderRows()
 
 	var html = filteredRows.map(function(row)
 	{
-		if (row.status !== 'READY')
+		if (!IsRowApplySelectable(row.status || ''))
 		{
 			row.apply_selected = false;
 		}
@@ -544,7 +553,7 @@ function RenderRows()
 			+ '<td>' + BuildStockEntryOverrideSelect(row) + stockOverrideNotice + '</td>'
 			+ '<td><div>' + EscapeHtml(selectedStockEntryText) + '</div><div class="small text-muted mt-1">' + EscapeHtml(selectedStockEntryMeta) + '</div></td>'
 			+ '<td>' + priceCheckHtml + '</td>'
-			+ '<td><div class="form-check custom-control custom-checkbox"><input class="form-check-input custom-control-input apply-selected-input" type="checkbox" id="apply-selected-' + EscapeHtml(row.line_number) + '" ' + (row.apply_selected ? 'checked' : '') + ' ' + (row.status === 'READY' ? '' : 'disabled') + '><label class="form-check-label custom-control-label" for="apply-selected-' + EscapeHtml(row.line_number) + '"></label></div></td>'
+			+ '<td><div class="form-check custom-control custom-checkbox"><input class="form-check-input custom-control-input apply-selected-input" type="checkbox" id="apply-selected-' + EscapeHtml(row.line_number) + '" ' + (row.apply_selected ? 'checked' : '') + ' ' + (IsRowApplySelectable(row.status || '') ? '' : 'disabled') + '><label class="form-check-label custom-control-label" for="apply-selected-' + EscapeHtml(row.line_number) + '"></label></div></td>'
 			+ '</tr>';
 	}).join('');
 
@@ -889,6 +898,49 @@ async function ParseUploadedPdfToStaging()
 	}
 }
 
+function RequestServerReview(showSuccessToast)
+{
+	if (!receiptReviewState.staging)
+	{
+		return;
+	}
+
+	Grocy.Api.Post('stock/receipt-backfill/review',
+		{
+			staging: receiptReviewState.staging
+		},
+		function(result)
+		{
+			receiptReviewState.staging = result.staging;
+			receiptReviewState.lastServerSummary = result.summary || null;
+			UpdateSummary();
+			RenderRows();
+			if (showSuccessToast)
+			{
+				toastr.success(__t('Server review completed'));
+			}
+		},
+		function(xhr)
+		{
+			toastr.error(xhr && xhr.responseJSON && xhr.responseJSON.error_message ? xhr.responseJSON.error_message : __t('Server review failed'));
+		}
+	);
+}
+
+function ScheduleAutoServerReview()
+{
+	if (receiptReviewAutoReviewTimer)
+	{
+		clearTimeout(receiptReviewAutoReviewTimer);
+	}
+
+	receiptReviewAutoReviewTimer = setTimeout(function()
+	{
+		receiptReviewAutoReviewTimer = null;
+		RequestServerReview(false);
+	}, 250);
+}
+
 $('#receipt-pdf-file').on('change', function()
 {
 	var file = this.files && this.files[0];
@@ -973,6 +1025,7 @@ $(document).on('change', '.manual-product-override-select', function(e)
 	row.manual_product_override_id = value === '' ? null : parseInt(value, 10);
 	row.product_override_applied = false;
 	row.stock_entry_override_applied = false;
+	ScheduleAutoServerReview();
 });
 
 $(document).on('change', '.manual-stock-entry-override-select', function(e)
@@ -990,6 +1043,7 @@ $(document).on('change', '.manual-stock-entry-override-select', function(e)
 	var value = ($(e.currentTarget).val() || '').trim();
 	row.manual_stock_entry_override_id = value === '' ? null : value;
 	row.stock_entry_override_applied = false;
+	ScheduleAutoServerReview();
 });
 
 $(document).on('change', '.apply-selected-input', function(e)
@@ -1004,7 +1058,7 @@ $(document).on('change', '.apply-selected-input', function(e)
 		return;
 	}
 
-	if ((row.status || '') !== 'READY')
+	if (!IsRowApplySelectable(row.status || ''))
 	{
 		$(e.currentTarget).prop('checked', false);
 		row.apply_selected = false;
@@ -1016,28 +1070,7 @@ $(document).on('change', '.apply-selected-input', function(e)
 
 $('#review-on-server-button').on('click', function()
 {
-	if (!receiptReviewState.staging)
-	{
-		return;
-	}
-
-	Grocy.Api.Post('stock/receipt-backfill/review',
-		{
-			staging: receiptReviewState.staging
-		},
-		function(result)
-		{
-			receiptReviewState.staging = result.staging;
-			receiptReviewState.lastServerSummary = result.summary || null;
-			UpdateSummary();
-			RenderRows();
-			toastr.success(__t('Server review completed'));
-		},
-		function(xhr)
-		{
-			toastr.error(xhr && xhr.responseJSON && xhr.responseJSON.error_message ? xhr.responseJSON.error_message : __t('Server review failed'));
-		}
-	);
+	RequestServerReview(true);
 });
 
 $('#apply-on-server-button').on('click', function()
@@ -1092,6 +1125,64 @@ $('#apply-on-server-button').on('click', function()
 				function(xhr)
 				{
 					toastr.error(xhr && xhr.responseJSON && xhr.responseJSON.error_message ? xhr.responseJSON.error_message : __t('Server apply failed'));
+				}
+			);
+		}
+	});
+});
+
+$('#generate-purchases-on-server-button').on('click', function()
+{
+	if (!receiptReviewState.staging)
+	{
+		return;
+	}
+
+	bootbox.confirm({
+		message: __t('Generate purchase entries for all READY_CREATE_PURCHASE rows with "Apply" checked?'),
+		closeButton: false,
+		buttons: {
+			confirm: {
+				label: __t('Yes'),
+				className: 'btn-success'
+			},
+			cancel: {
+				label: __t('No'),
+				className: 'btn-danger'
+			}
+		},
+		callback: function(result)
+		{
+			if (!result)
+			{
+				return;
+			}
+
+			Grocy.Api.Post('stock/receipt-backfill/generate-purchases',
+				{
+					staging: receiptReviewState.staging
+				},
+				function(apiResult)
+				{
+					receiptReviewState.staging = apiResult.staging;
+					receiptReviewState.lastServerSummary = apiResult.summary || null;
+					UpdateSummary();
+					RenderRows();
+
+					if (apiResult.errors && apiResult.errors.length > 0)
+					{
+						toastr.warning(__t('%s purchase entrie(s) created, %s error(s)', apiResult.created_count || 0, apiResult.errors.length));
+					}
+					else
+					{
+						toastr.success(__t('%s purchase entrie(s) created', apiResult.created_count || 0));
+					}
+
+					ResetStagingJsonInputs();
+				},
+				function(xhr)
+				{
+					toastr.error(xhr && xhr.responseJSON && xhr.responseJSON.error_message ? xhr.responseJSON.error_message : __t('Purchase-entry generation failed'));
 				}
 			);
 		}

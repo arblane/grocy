@@ -74,6 +74,12 @@
 					disabled>
 					{{ $__t('Apply selected on server') }}
 				</button>
+				<button id="generate-purchases-on-server-button"
+					class="btn btn-outline-success responsive-button m-1 mt-md-0 mb-md-0 float-right"
+					type="button"
+					disabled>
+					{{ $__t('Generate purchase entries for selected products') }}
+				</button>
 				<button id="download-staging-json-button"
 					class="btn btn-outline-secondary responsive-button m-1 mt-md-0 mb-md-0 float-right"
 					type="button"
@@ -94,7 +100,7 @@
 <hr class="my-2">
 
 <div class="alert alert-info">
-	{{ $__t('Load the staging JSON from the CLI preview command, select product and stock-entry overrides, then use "Re-evaluate on server" to refresh statuses. When READY rows look correct, use "Apply selected on server" to write prices and stores.') }}
+	{{ $__t('Load the staging JSON from the CLI preview command, select product and stock-entry overrides, then use "Re-evaluate on server" to refresh statuses. Use "Apply selected on server" for READY rows (price/store backfill), and "Generate purchase entries for selected products" for READY_CREATE_PURCHASE rows.') }}
 </div>
 
 <div class="row">
