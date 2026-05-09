@@ -11,8 +11,8 @@ SELECT
 	last_used.used_date AS last_used_date,
 	next_due.best_before_date AS next_due_date,
 	IFNULL((spoil_count.amount * 100.0) / consume_count.amount, 0) AS spoil_rate,
-	CAST(IFNULL(quc_purchase2stock.factor, 1.0) AS REAL) AS qu_factor_purchase_to_stock,
-	CAST(IFNULL(quc_price2stock.factor, 1.0) AS REAL) AS qu_factor_price_to_stock,
+	(IFNULL(quc_purchase2stock.factor, 1.0) * 1.0) AS qu_factor_purchase_to_stock,
+	(IFNULL(quc_price2stock.factor, 1.0) * 1.0) AS qu_factor_price_to_stock,
 	CASE WHEN EXISTS(SELECT 1 FROM products px WHERE px.parent_product_id = p.id) THEN 1 ELSE 0 END AS has_childs
 FROM products p
 LEFT JOIN cache__products_last_purchased plp

@@ -83,7 +83,25 @@
 				value="0">
 			@endif
 
-			@include('components.userfieldsform', array(
+			@if(!empty($parentLocations))
+		<div class="form-group">
+			<label for="parent_location_id">{{ $__t('Parent location') }}</label>
+			<select class="custom-select"
+				id="parent_location_id"
+				name="parent_location_id">
+				<option value="">{{ $__t('None') }}</option>
+				@foreach($parentLocations as $parentLocation)
+				<option value="{{ $parentLocation->id }}"
+					@if($mode == 'edit' && isset($location->parent_location_id) && $location->parent_location_id == $parentLocation->id)
+					selected
+					@endif>{{ $parentLocation->name }}</option>
+				@endforeach
+			</select>
+			<small class="form-text text-muted">{{ $__t('Optional. Groups this location under a parent for scan sheet printing. The parent location is for organisation only and is not a valid storage destination.') }}</small>
+		</div>
+		@endif
+
+		@include('components.userfieldsform', array(
 			'userfields' => $userfields,
 			'entity' => 'locations'
 			))

@@ -64,6 +64,7 @@ $app->group('', function (RouteCollectorProxy $group)
 	$group->get('/stockentry/{entryId}/grocycode', '\Grocy\Controllers\StockController:StockEntryGrocycodeImage');
 	$group->get('/stockentry/{entryId}/label', '\Grocy\Controllers\StockController:StockEntryGrocycodeLabel');
 	$group->get('/quantityunitconversionsresolved', '\Grocy\Controllers\StockController:QuantityUnitConversionsResolved');
+	$group->get('/receiptbackfillreview', '\Grocy\Controllers\StockController:ReceiptBackfillReview');
 	$group->get('/stockreports/consumption', '\Grocy\Controllers\StockReportsController:Consumption');
 	$group->get('/stockreports/spendings', '\Grocy\Controllers\StockReportsController:Spendings');
 
@@ -199,6 +200,9 @@ $app->group('/api', function (RouteCollectorProxy $group)
 	$group->get('/stock/barcodes/external-lookup/{barcode}', '\Grocy\Controllers\StockApiController:ExternalBarcodeLookup');
 	$group->get('/stock/products/{productId}/printlabel', '\Grocy\Controllers\StockApiController:ProductPrintLabel');
 	$group->get('/stock/entry/{entryId}/printlabel', '\Grocy\Controllers\StockApiController:StockEntryPrintLabel');
+	$group->post('/stock/receipt-backfill/preview-text', '\Grocy\Controllers\StockApiController:ReceiptBackfillPreviewFromText');
+	$group->post('/stock/receipt-backfill/review', '\Grocy\Controllers\StockApiController:ReceiptBackfillReview');
+	$group->post('/stock/receipt-backfill/apply', '\Grocy\Controllers\StockApiController:ReceiptBackfillApply');
 
 	// Shopping list
 	$group->post('/stock/shoppinglist/add-missing-products', '\Grocy\Controllers\StockApiController:AddMissingProductsToShoppingList');

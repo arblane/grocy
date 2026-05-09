@@ -128,18 +128,95 @@ class StockController extends BaseController
 			$productsByLocation[$product->location_id][] = $product;
 		}
 
-		$locations = [];
+		// Build grouped pages: one page per parent location (or standalone location)
+		// Each page: ['title' => string, 'sections' => [['title' => string|null, 'products' => [...]]]]
+		$pages = [];
 		if (!empty($productsByLocation))
 		{
-			$locations = $this->getDatabase()->locations()
+			// Load all locations that have products
+			$allLocations = $this->getDatabase()->locations()
 				->where('id', array_keys($productsByLocation))
-				->orderBy('name', 'COLLATE NOCASE');
+				->orderBy('name', 'COLLATE NOCASE')
+				->fetchAll();
+
+			// Collect parent ids referenced by these locations
+			$parentIds = array_filter(array_unique(array_map(
+				fn($l) => $l->parent_location_id,
+				$allLocations
+			)));
+
+			// Load parent location objects (they may not have products themselves)
+			$parentLocations = [];
+			if (!empty($parentIds))
+			{
+				$parentRows = $this->getDatabase()->locations()
+					->where('id', $parentIds)
+					->orderBy('name', 'COLLATE NOCASE')
+					->fetchAll();
+				foreach ($parentRows as $parentRow)
+				{
+					$parentLocations[$parentRow->id] = $parentRow;
+				}
+			}
+
+			// Separate child locations (have a known parent) from standalone locations
+			$childrenByParent = [];
+			$standaloneLocations = [];
+			foreach ($allLocations as $loc)
+			{
+				if (!empty($loc->parent_location_id) && isset($parentLocations[$loc->parent_location_id]))
+				{
+					$childrenByParent[$loc->parent_location_id][] = $loc;
+				}
+				else
+				{
+					$standaloneLocations[] = $loc;
+				}
+			}
+
+			// One page per parent, sections per child location
+			foreach ($parentLocations as $parentId => $parentLoc)
+			{
+				if (empty($childrenByParent[$parentId]))
+				{
+					continue;
+				}
+				$children = $childrenByParent[$parentId];
+				usort($children, fn($a, $b) => strcasecmp($a->name, $b->name));
+				$showSubheadings = count($children) > 1;
+				$sections = [];
+				foreach ($children as $childLoc)
+				{
+					$sections[] = [
+						'title' => $showSubheadings ? $childLoc->name : null,
+						'products' => $productsByLocation[$childLoc->id] ?? []
+					];
+				}
+				$pages[] = [
+					'title' => $parentLoc->name,
+					'sections' => $sections
+				];
+			}
+
+			// One page per standalone location
+			foreach ($standaloneLocations as $loc)
+			{
+				$pages[] = [
+					'title' => $loc->name,
+					'sections' => [[
+						'title' => null,
+						'products' => $productsByLocation[$loc->id] ?? []
+					]]
+				];
+			}
+
+			// Sort all pages alphabetically by title
+			usort($pages, fn($a, $b) => strcasecmp($a['title'], $b['title']));
 		}
 
 		return $this->renderPage($response, 'scansheet', [
 			'quantityunits' => $this->getDatabase()->quantity_units()->orderBy('name', 'COLLATE NOCASE'),
-			'locations' => $locations,
-			'productsByLocation' => $productsByLocation
+			'pages' => $pages
 		]);
 	}
 
@@ -147,16 +224,33 @@ class StockController extends BaseController
 	{
 		if ($args['locationId'] == 'new')
 		{
+			$parentLocations = $this->getDatabase()->locations()
+				->where('active = 1')
+				->where('parent_location_id IS NULL')
+				->orderBy('name', 'COLLATE NOCASE')
+				->fetchAll();
+
 			return $this->renderPage($response, 'locationform', [
 				'mode' => 'create',
+				'parentLocations' => $parentLocations,
 				'userfields' => $this->getUserfieldsService()->GetFields('locations')
 			]);
 		}
 		else
 		{
+			$currentLocation = $this->getDatabase()->locations($args['locationId']);
+
+			$parentLocations = $this->getDatabase()->locations()
+				->where('active = 1')
+				->where('parent_location_id IS NULL')
+				->where('id != ' . intval($args['locationId']))
+				->orderBy('name', 'COLLATE NOCASE')
+				->fetchAll();
+
 			return $this->renderPage($response, 'locationform', [
-				'location' => $this->getDatabase()->locations($args['locationId']),
+				'location' => $currentLocation,
 				'mode' => 'edit',
+				'parentLocations' => $parentLocations,
 				'userfields' => $this->getUserfieldsService()->GetFields('locations')
 			]);
 		}
@@ -192,15 +286,57 @@ class StockController extends BaseController
 			$where = '1=1';
 		}
 
+		// Build location filter dropdown with parent grouping
+		$allLocationsForDropdown = $this->getDatabase()->locations()->where('active = 1')->orderBy('name', 'COLLATE NOCASE')->fetchAll();
+		$activeLocationIds = array_fill_keys(array_map(fn($l) => $l->id, $allLocationsForDropdown), true);
+		$childrenByParentId = [];
+		$childIds = [];
+		foreach ($allLocationsForDropdown as $loc)
+		{
+			if (!empty($loc->parent_location_id) && isset($activeLocationIds[$loc->parent_location_id]))
+			{
+				$childrenByParentId[$loc->parent_location_id][] = $loc;
+				$childIds[$loc->id] = true;
+			}
+		}
+
+		$locationDropdown = [];
+		foreach ($allLocationsForDropdown as $loc)
+		{
+			if (isset($childrenByParentId[$loc->id]))
+			{
+				// Parent location: add parent entry then its children
+				$children = $childrenByParentId[$loc->id];
+				usort($children, fn($a, $b) => strcasecmp($a->name, $b->name));
+				$childNamePattern = implode('|', array_map(fn($c) => preg_quote($c->name), $children));
+				$locationDropdown[] = ['type' => 'parent', 'location' => $loc, 'childNamePattern' => $childNamePattern];
+				foreach ($children as $child)
+				{
+					$locationDropdown[] = ['type' => 'child', 'location' => $child];
+				}
+			}
+			elseif (!isset($childIds[$loc->id]))
+			{
+				// Standalone location (no parent, no children)
+				$locationDropdown[] = ['type' => 'standalone', 'location' => $loc];
+			}
+		}
+
 		return $this->renderPage($response, 'stockoverview', [
 			'currentStock' => $this->getDatabase()->uihelper_stock_current_overview()->where($where),
 			'locations' => $this->getDatabase()->locations()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),
+			'locationDropdown' => $locationDropdown,
 			'currentStockLocations' => $this->getStockService()->GetCurrentStockLocations(),
 			'nextXDays' => $nextXDays,
 			'productGroups' => $this->getDatabase()->product_groups()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),
 			'userfields' => $this->getUserfieldsService()->GetFields('products'),
 			'userfieldValues' => $this->getUserfieldsService()->GetAllValues('products')
 		]);
+	}
+
+	public function ReceiptBackfillReview(Request $request, Response $response, array $args)
+	{
+		return $this->renderPage($response, 'receiptbackfillreview');
 	}
 
 	public function ProductBarcodesEditForm(Request $request, Response $response, array $args)
@@ -627,11 +763,6 @@ class StockController extends BaseController
 			'userfieldsStock' => $this->getUserfieldsService()->GetFields('stock'),
 			'userfieldValuesStock' => $this->getUserfieldsService()->GetAllValues('stock')
 		]);
-	}
-
-	public function ReceiptBackfillReview(Request $request, Response $response, array $args)
-	{
-		return $this->renderPage($response, 'receiptbackfillreview');
 	}
 
 	public function Transfer(Request $request, Response $response, array $args)
