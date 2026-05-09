@@ -629,6 +629,11 @@ class StockController extends BaseController
 		]);
 	}
 
+	public function ReceiptBackfillReview(Request $request, Response $response, array $args)
+	{
+		return $this->renderPage($response, 'receiptbackfillreview');
+	}
+
 	public function Transfer(Request $request, Response $response, array $args)
 	{
 		return $this->renderPage($response, 'transfer', [
