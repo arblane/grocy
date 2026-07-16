@@ -183,12 +183,11 @@ class StockController extends BaseController
 				}
 				$children = $childrenByParent[$parentId];
 				usort($children, fn($a, $b) => strcasecmp($a->name, $b->name));
-				$showSubheadings = count($children) > 1;
 				$sections = [];
 				foreach ($children as $childLoc)
 				{
 					$sections[] = [
-						'title' => $showSubheadings ? $childLoc->name : null,
+						'title' => $childLoc->name,
 						'products' => $productsByLocation[$childLoc->id] ?? []
 					];
 				}

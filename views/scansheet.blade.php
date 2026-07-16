@@ -23,7 +23,7 @@
 		}
 
 		.scansheet-label {
-			font-size: 0.85rem;
+			font-size: 1.25rem;
 		}
 
 		.scansheet-grocycode {
@@ -103,24 +103,20 @@
 
 <hr class="my-2 d-print-none">
 
-@if(empty($productsByLocation))
+@if(empty($pages))
 <p class="text-muted d-print-none">
 	{{ $__t('No products are flagged for the scan sheet. Enable the "Include in scan sheet" userfield on any product to have it appear here.') }}
 </p>
 @endif
 
-@foreach($locations as $location)
-@php $locationProducts = $productsByLocation[$location->id] ?? []; @endphp
-@if(empty($locationProducts))
-@continue
-@endif
+@foreach($pages as $page)
 <div class="page">
 	<h1 class="pt-4 text-center">
 		<img src="{{ $U('/img/logo.svg?v=', true) }}{{ $version }}"
 			width="114"
 			height="30"
 			class="d-none d-print-flex mx-auto">
-		{{ $location->name }}
+		{{ $page['title'] }}
 		<a class="btn btn-outline-dark btn-sm responsive-button print-single-location-button d-print-none"
 			href="#">
 			{{ $__t('Print') . ' (' . $__t('this location') . ')' }}
@@ -130,8 +126,12 @@
 		{{ $__t('Time of printing') }}:
 		<span class="d-inline print-timestamp"></span>
 	</h6>
+	@foreach($page['sections'] as $section)
+	@if(!empty($section['title']))
+	<h2 class="h5 mt-3 mb-2 text-center">{{ $section['title'] }}</h2>
+	@endif
 	<div class="scansheet-grid">
-		@foreach($locationProducts as $product)
+		@foreach($section['products'] as $product)
 		@php
 			$brand = trim((string) ($product->brand ?? ''));
 			$displayName = trim((string) ($product->product_display_name ?? $product->name));
@@ -149,6 +149,7 @@
 		</div>
 		@endforeach
 	</div>
+	@endforeach
 </div>
 @endforeach
 @stop
