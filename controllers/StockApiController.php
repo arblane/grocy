@@ -58,16 +58,19 @@ class StockApiController extends BaseApiController
 	private function loadParentProductIdSet(): array
 	{
 		$parentProductIdSet = [];
-		foreach ($this->getDatabase()->products()->where('parent_product_id IS NOT NULL')->fetchAll() as $product)
+		// First, get all distinct parent_product_id values
+		$allProducts = $this->getDatabase()->products()->fetchAll();
+		$parentIds = [];
+		foreach ($allProducts as $product)
 		{
-			$parentProductId = intval($product->parent_product_id);
-			if ($parentProductId > 0)
+			if ($product->parent_product_id !== null && $product->parent_product_id > 0)
 			{
-				$parentProductIdSet[$parentProductId] = true;
+				$parentIds[intval($product->parent_product_id)] = true;
 			}
 		}
-
-		return $parentProductIdSet;
+		
+		// Now the parentIds array contains all IDs that are parents
+		return $parentIds;
 	}
 
 	private function composeProductDisplayName(array $product): string
@@ -350,9 +353,14 @@ class StockApiController extends BaseApiController
 
 	private function buildCandidateProducts(array $row, array $productsMap, array $parentProductIdSet): array
 	{
+		$lineNumber = intval($row['line_number'] ?? 0);
 		$candidateProducts = [];
 		if (array_key_exists('candidate_products', $row) && is_array($row['candidate_products']))
 		{
+			if ($lineNumber === 92)
+			{
+				error_log('DEBUG buildCandidateProducts Line 92: candidate_products from row = ' . json_encode(array_map(function($c) { return $c['id']; }, $row['candidate_products'])));
+			}
 			foreach ($row['candidate_products'] as $candidate)
 			{
 				if (!is_array($candidate) || !array_key_exists('id', $candidate) || !is_numeric($candidate['id']))
@@ -363,6 +371,10 @@ class StockApiController extends BaseApiController
 				$productId = intval($candidate['id']);
 				if (array_key_exists($productId, $parentProductIdSet))
 				{
+					if ($lineNumber === 92 && $productId === 243)
+					{
+						error_log('DEBUG buildCandidateProducts Line 92: Product 243 filtered (is in parentProductIdSet)');
+					}
 					continue;
 				}
 				$productName = $candidate['name'] ?? ($productsMap[$productId]['name'] ?? null);
@@ -491,6 +503,7 @@ class StockApiController extends BaseApiController
 		}
 
 		$matchesByProduct = [];
+		$parentProductMatches = [];
 		foreach ($terms as $term)
 		{
 			$likePattern = '%' . $term . '%';
@@ -499,6 +512,7 @@ class StockApiController extends BaseApiController
 				$productId = intval($product->id);
 				if (array_key_exists($productId, $parentProductIdSet))
 				{
+					$parentProductMatches[$productId] = true;
 					continue;
 				}
 				$additionalDetails = isset($product->additional_details) ? trim(strval($product->additional_details)) : '';
@@ -587,6 +601,60 @@ class StockApiController extends BaseApiController
 				'display_name' => $product['display_name'] ?? strval($product['name']),
 				'score' => round($finalScore, 3),
 			];
+		}
+
+		if (count($parentProductMatches) > 0)
+		{
+			$childProducts = $this->getDatabase()->products()->where('parent_product_id', array_keys($parentProductMatches))->fetchAll();
+			foreach ($childProducts as $childProduct)
+			{
+				$childProductId = intval($childProduct->id);
+				$childAlreadyAdded = false;
+				$childCandidateIndex = -1;
+				foreach ($candidates as $index => $candidate)
+				{
+					if (intval($candidate['id']) === $childProductId)
+					{
+						$childAlreadyAdded = true;
+						$childCandidateIndex = $index;
+						break;
+					}
+				}
+
+				if ($childAlreadyAdded)
+				{
+					// Update the score to 0.95 since it matched a parent
+					$candidates[$childCandidateIndex]['score'] = 0.95;
+					continue;
+				}
+
+				$additionalDetails = isset($childProduct->additional_details) ? trim(strval($childProduct->additional_details)) : '';
+				$strength = isset($childProduct->strength) ? trim(strval($childProduct->strength)) : null;
+				$size = isset($childProduct->size) ? trim(strval($childProduct->size)) : null;
+				$packageConfiguration = isset($childProduct->package_configuration) ? trim(strval($childProduct->package_configuration)) : null;
+				$brand = isset($childProduct->brand) ? trim(strval($childProduct->brand)) : null;
+				$productData = [
+					'name' => strval($childProduct->name),
+					'additional_details' => $additionalDetails === '' ? null : $additionalDetails,
+					'strength' => $strength,
+					'size' => $size,
+					'package_configuration' => $packageConfiguration,
+					'brand' => $brand,
+				];
+				$displayName = $this->composeProductDisplayName($productData);
+
+				$candidates[] = [
+					'id' => intval($childProduct->id),
+					'name' => strval($childProduct->name),
+					'additional_details' => $additionalDetails === '' ? null : $additionalDetails,
+					'strength' => $strength,
+					'size' => $size,
+					'package_configuration' => $packageConfiguration,
+					'brand' => $brand,
+					'display_name' => $displayName,
+					'score' => 0.95,
+				];
+			}
 		}
 
 		usort($candidates, function ($a, $b)
@@ -939,15 +1007,29 @@ class StockApiController extends BaseApiController
 			if (preg_match('/^\s*In Stock\b/', $line) && strpos($line, 'Size') !== false)
 			{
 				$inStockSection = true;
+				// Re-detect columns starting from this header line (for multi-page receipts)
+				$sliceFromHeader = array_slice($lines, $i);
+				$colsFromHeader = $this->receiptFindColumnPositions($sliceFromHeader);
+				if ($colsFromHeader !== null)
+				{
+					$cols = $colsFromHeader;
+				}
 				continue;
 			}
 			if (!$inStockSection)
 			{
 				continue;
 			}
-			if (strpos($line, 'Amount charged may be lower') !== false || strpos($line, '*** PICKUP ***') !== false)
+			// End of receipt - only break on final footer message
+			if (strpos($line, 'Amount charged may be lower') !== false)
 			{
 				break;
+			}
+
+			// Skip page boundary markers but continue parsing
+			if (strpos($line, '*** PICKUP ***') !== false)
+			{
+				continue;
 			}
 			if ($this->receiptIsSkipLine($line))
 			{
@@ -1294,10 +1376,10 @@ class StockApiController extends BaseApiController
 				continue;
 			}
 
+			$lineNumber = intval($row['line_number'] ?? 0);
 			$row['proposed_price'] = $this->computeReceiptBackfillProposedPrice($row, null);
 
 			$candidateProducts = $this->buildCandidateProducts($row, $productsMap, $parentProductIdSet);
-			$lineNumber = intval($row['line_number'] ?? 0);
 			if (array_key_exists($lineNumber, $searchedCandidatesByLine))
 			{
 				foreach ($searchedCandidatesByLine[$lineNumber] as $searchedCandidate)
